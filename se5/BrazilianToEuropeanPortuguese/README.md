@@ -340,6 +340,13 @@ Rules found by comparing the output against real PT-PT subtitles:
   *Liga você para ela.* → *Liga-lhe.*, but the question keeps the stressed subject: *Ligas tu para ela?*.
   *olhar/levar/falar/dar para…*, nouns (*uma pergunta para ela*), *isso conta para ele* and *liguei para ele
   saber* are kept. *Só/Apenas* + command also takes the *tu* form: *Só me ligue* → *Só me liga*.
+- When a rule leaves a pronoun, preposition or article at the end of a line, the line break moves so it stays with
+  its word: *Disse que o João ligou / pra ele do hotel* → *Disse que o João / lhe ligou do hotel*, *Então disse pra
+  ela / me encontrar* → *Então disse-lhe / para me encontrar*. The word normally moves down; words come up from the
+  next line when that would leave one word alone or make the next line too long (43 characters, or the longest
+  original line). Lines that already ended like that in the original subtitle are left as they were.
+- *falando em/sobre/com…* that continues a sentence becomes *a falar…* (*Eu vi-o na TV, / a falar sobre o caso*);
+  only a sentence-initial *Falando nisso/em…* is *Por falar nisso/em…*.
 - *até o/a* → *até ao/à* before a destination or a limit: *levou-o até o estoque* → *até ao stock*,
   *até o fim*, *até as 19h* → *até às 19h*. *Até o pai sabe* ("even") and *até o Farooq aparecer* are kept.
 - *conferir* → *verificar*; *o álibi confere*, *isso confere com…* → *bate certo*.

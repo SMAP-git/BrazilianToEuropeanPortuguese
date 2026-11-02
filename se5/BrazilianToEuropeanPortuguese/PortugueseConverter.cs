@@ -376,7 +376,93 @@ public sealed class PortugueseConverter
             current = next;
         }
 
-        return RestoreLineBreaks(text, current);
+        return BalanceLineBreaks(text, RestoreLineBreaks(text, current));
+    }
+
+    private const int MaxLineLength = 43;
+
+    // Words that cannot end a subtitle line: a pronoun before its verb, a preposition or an article before its noun.
+    private static readonly HashSet<string> DanglingWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "me", "te", "se", "lhe", "lhes", "nos", "vos", "o", "a", "os", "as", "um", "uma", "para", "de", "do", "da", "dos", "das",
+        "em", "no", "na", "nos", "nas", "ao", "à", "aos", "às", "com", "por", "pelo", "pela", "num", "numa",
+    };
+
+    /// <summary>
+    /// A rule that moves a word ("ligou\npara ele" → "lhe\nligou", "disse\npara ela" → "disse-lhe para\n") can leave a pronoun,
+    /// preposition or article at the end of a line. The word goes down to the next line, or words from the next line come up,
+    /// whichever keeps the longest line shorter. Lines that already ended like that in the original are the translator's choice.
+    /// </summary>
+    internal static string BalanceLineBreaks(string original, string converted)
+    {
+        if (!converted.Contains('\n') || converted.IndexOfAny(['<', '{']) >= 0)
+        {
+            return converted;
+        }
+
+        var newline = converted.Contains("\r\n") ? "\r\n" : "\n";
+        var originalLines = original.Replace("\r\n", "\n").Split('\n');
+        var lines = converted.Replace("\r\n", "\n").Split('\n');
+        if (lines.Length != originalLines.Length)
+        {
+            return converted;
+        }
+
+        var changed = false;
+        for (var i = 0; i < lines.Length - 1; i++)
+        {
+            if (!EndsDangling(lines[i]) || EndsDangling(originalLines[i]) || Regex.IsMatch(lines[i + 1], @"^\s*[-–—]"))
+            {
+                continue;
+            }
+
+            var limit = Math.Max(MaxLineLength, originalLines.Max(l => l.Length));
+            var top = lines[i].TrimEnd().Split(' ').ToList();
+            var bottom = lines[i + 1].TrimStart().Split(' ').ToList();
+
+            var downTop = top.ToList();
+            var downBottom = bottom.ToList();
+            while (downTop.Count > 1 && DanglingWords.Contains(downTop[^1]))
+            {
+                downBottom.Insert(0, downTop[^1]);
+                downTop.RemoveAt(downTop.Count - 1);
+            }
+
+            var upTop = top.ToList();
+            var upBottom = bottom.ToList();
+            while (upBottom.Count > 1 && DanglingWords.Contains(upTop[^1]))
+            {
+                upTop.Add(upBottom[0]);
+                upBottom.RemoveAt(0);
+            }
+
+            var down = (string.Join(' ', downTop), string.Join(' ', downBottom));
+            var up = (string.Join(' ', upTop), string.Join(' ', upBottom));
+            var downOk = downTop.Count > 0 && !DanglingWords.Contains(downTop[^1]);
+            var upOk = !DanglingWords.Contains(upTop[^1]);
+            var downLength = Math.Max(down.Item1.Length, down.Item2.Length);
+            var upLength = Math.Max(up.Item1.Length, up.Item2.Length);
+            // Moving the word down keeps the break where the translator put it; words only come up when the next line gets too long.
+            // "Nunca\nnos contaste sobre isso" leaves one word alone: "Nunca nos contaste\nsobre isso" reads better.
+            var lonely = downTop.Count == 1 && upOk && upBottom.Count >= 2 && upLength <= limit;
+            (string, string)? best = downOk && !lonely && (downLength <= limit || !upOk || downLength <= upLength) ? down : upOk ? up : null;
+            if (best == null || Math.Max(best.Value.Item1.Length, best.Value.Item2.Length) > limit)
+            {
+                continue;
+            }
+
+            lines[i] = best.Value.Item1;
+            lines[i + 1] = best.Value.Item2;
+            changed = true;
+        }
+
+        return changed ? string.Join(newline, lines) : converted;
+    }
+
+    private static bool EndsDangling(string line)
+    {
+        var m = Regex.Match(line, @"(?<![\p{L}\p{M}-])(?<w>\p{L}+)\s*$");
+        return m.Success && DanglingWords.Contains(m.Groups["w"].Value);
     }
 
     /// <summary>
@@ -1687,7 +1773,8 @@ public sealed class PortugueseConverter
             (new Regex(@"(?<pre>,\s+)(?<w>valeu)(?=\s*[.!…]|\s*$)", Ci), m => m.Groups["pre"].Value + CaseHelper.MatchCase(m.Groups["w"].Value, "obrigado")),
             (new Regex(SentenceStart + @"(?<w>(?:eu\s+)?te\s+vejo)(?=\s+(?:lá|aí|amanhã|depois|logo|mais\s+tarde|em\s+breve|no|na|nos|nas|do\s+outro|à\s+noite|hoje|daqui|segunda|terça|quarta|quinta|sexta|sábado|domingo)" + NotWordAfter + @"|\s*[.!]|\s*$)", Ci),
                 m => m.Groups["pre"].Value + CaseHelper.MatchCase(m.Groups["w"].Value, "vemo-nos")),
-            (new Regex(SentenceStart + @"(?<w>falando)(?=\s+(?:nisso|nisto|em|de|do|da|dos|das|no|na|nos|nas|sobre)" + NotWordAfter + ")", Ci), m => m.Groups["pre"].Value + CaseHelper.MatchCase(m.Groups["w"].Value, "por falar")),
+            (new Regex(@"(?<pre>(?:^|\n|,\s+)[""“«']?)(?<w>(?-i:falando))(?=\s+(?:em|de|do|da|dos|das|sobre|com)" + NotWordAfter + ")", Ci), m => m.Groups["pre"].Value + "a falar"),
+            (new Regex(SentenceStart + @"(?<w>(?-i:Falando|FALANDO))(?=\s+(?:nisso|nisto|em|de|do|da|dos|das|no|na|nos|nas|sobre)" + NotWordAfter + ")", Ci), m => m.Groups["pre"].Value + CaseHelper.MatchCase(m.Groups["w"].Value, "por falar")),
             (new Regex(SentenceStart + @"(?<w>imagina)(?=\s*[.!]|\s*$)", Ci), m => m.Groups["pre"].Value + CaseHelper.MatchCase(m.Groups["w"].Value,
                 Regex.IsMatch(m.Result("$`"), @"obrigad|valeu", RegexOptions.IgnoreCase) ? "de nada" : "não faz mal")),
             (new Regex(@"(?<pre>(?:^|[.!?…:;]\s+|\n|(?<![\p{L}\p{M}])[-–—]\s*|[\uE000-\uF8FF]\s*|" + NotWordBefore + @"(?:que|não|se|ainda|já|porque|onde|mas|e|aqui|ali|lá|aí)\s+)[""“«']?)(?<w>tem)(?=\s+(?:gente|alguém|ninguém)" + NotWordAfter + ")", Ci),
@@ -2318,7 +2405,8 @@ public sealed class PortugueseConverter
         /// Sentences that also talk about a third person (ele, ela, dele...) are left alone.
         /// </summary>
         private static readonly Regex ExplicitAddressee = new(NotWordBefore + @"(?:você|tu|teu|tua|teus|tuas)" + NotWordAfter, Ci);
-        private static readonly Regex ThirdPersonRecipient = new(NotWordBefore + @"(?:lhe|lhes)" + NotWordAfter, Ci);
+        // "Disse-lhe para trazer o seu carro" - an enclitic "-lhe" also names the third person.
+        private static readonly Regex ThirdPersonRecipient = new(@"(?<![\p{L}\p{M}\d_])(?:lhe|lhes)" + NotWordAfter, Ci);
         private static readonly Regex SendingPossessions = new(
             NotWordBefore + @"(?:mandei|enviei|entreguei|devolvi|remeti|mandou|enviou|entregou|devolveu)\s+(?:as?\s+|os?\s+)?(?:seu|sua|seus|suas)" + NotWordAfter, Ci);
         private static readonly Regex SeparationAntecedent = new(
