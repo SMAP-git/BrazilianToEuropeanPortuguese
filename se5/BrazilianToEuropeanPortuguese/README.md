@@ -329,6 +329,11 @@ Rules found by comparing the output against real PT-PT subtitles:
   → *Não os menciones*, *Comeste ela?* → *Comeste-a?*, *usar ela* → *usá-la*, *Acho ele bonito* → *Acho-o bonito*
   (*Pode ser ele*, *Lá vem ele* are kept); *mandá-los fazerem* → *mandá-los fazer*. A clause-initial command
   keeps *você* as the subject: *Então manda você.* → *Então manda tu.*
+- After *que/se/quando/porque…* + a short subject the pronoun stays before the verb: *que minha mãe traiu ele*
+  → *que a minha mãe o traiu*, *se o meu pai me visse*, *quando a polícia achar ele* → *quando a polícia o achar*.
+- *Olha (só) você* → *Olha (só) para ti*, also with a gerund: *Olha só você fazendo uma entrada* → *Olha só
+  para ti a fazer uma entrada*. A short command at the start of a sentence keeps *você* as its subject:
+  *Manda você.* → *Manda tu.* (*Incomoda você?* → *Incomoda-te?*).
 - *até o/a* → *até ao/à* before a destination or a limit: *levou-o até o estoque* → *até ao stock*,
   *até o fim*, *até as 19h* → *até às 19h*. *Até o pai sabe* ("even") and *até o Farooq aparecer* are kept.
 - *conferir* → *verificar*; *o álibi confere*, *isso confere com…* → *bate certo*.

@@ -2009,6 +2009,27 @@ public sealed class PortugueseConverter
         private static readonly Regex CommandYou = new(
             @"(?<pre>(?:[,;]\s*|" + NotWordBefore + @"(?:então|e|mas|agora|ok)\s+))(?<v>\p{L}+(?<!ia)[ae])\s+(?<you>você)(?=\s*(?:[.!,…]|$))", Ci);
 
+        // "Manda você." / "- Decide você!" → "Manda tu.": a short command at the start of a sentence, "você" is its subject.
+        private static readonly Regex StartCommandYou = new(
+            @"(?<pre>(?:^|[.!?…]\s+|\n|(?<![\p{L}\p{M}])[-–—]\s*))(?<v>manda|decide|escolhe|começa|faz|liga|conduz|avisa|paga|abre|entra|pergunta|explica|conta|tenta|experimenta|atende|joga|fala|diz|vai|vem|sai|fica|vê|pega|leva|escreve|toca|canta|dança|primeiro|segue|chama|responde)\s+(?<you>você)(?=\s*(?:[.!…]|$))", Ci);
+
+        // "Olha só você fazendo uma entrada" → "Olha só para ti a fazer uma entrada", "Olha você!" → "Olha para ti!".
+        private static readonly Regex LookAtYou = new(
+            NotWordBefore + @"(?<v>olha|olhe|olhem)(?<adv>\s+só)?\s+(?<you>você)" +
+            @"(?:\s+(?:(?<a>a)\s+(?<inf>\p{Ll}+[aeiô]r)|(?:(?<cl>me|nos)\s+)?(?<g>\p{Ll}+(?:ando|endo|indo)))" + NotWordAfter + @"|(?=\s*(?:[.!?…]|$)))", Ci);
+
+        private static string ReplaceLookAtYou(Match m)
+        {
+            var upper = CaseHelper.IsAllUpper(m.Groups["you"].Value);
+            var rest = m.Groups["inf"].Success ? " a " + m.Groups["inf"].Value
+                : m.Groups["g"].Success ? " a " + (m.Groups["cl"].Success
+                    ? PortugueseVerbs.AttachEnclitic(ProgressiveRules.ToInfinitive(m.Groups["g"].Value), m.Groups["cl"].Value.ToLowerInvariant())
+                    : ProgressiveRules.ToInfinitive(m.Groups["g"].Value))
+                : string.Empty;
+            var result = m.Groups["v"].Value + m.Groups["adv"].Value + " " + (upper ? ("PARA TI" + rest).ToUpperInvariant() : "para ti" + rest);
+            return result;
+        }
+
         private static readonly Regex ObjectYou = new(
             @"(?<trig>" + NotWordBefore + @"(?:" + ProclisisTriggers + @")\s+)?" + NotWordBefore + @"(?<v>\p{L}+)\s+você(?!\s+mesm)" + NotWordAfter, Ci);
 
@@ -2063,6 +2084,7 @@ public sealed class PortugueseConverter
                 return ApplyFormal(s);
             }
 
+            s = LookAtYou.Replace(s, ReplaceLookAtYou);
             s = YouInfinitive.Replace(s, m =>
             {
                 var inf = m.Groups["inf"].Value;
@@ -2110,6 +2132,7 @@ public sealed class PortugueseConverter
             s = YouAnd.Replace(s, m => CaseHelper.MatchCase(m.Groups["w"].Value, "tu"));
             s = EmphaticYou.Replace(s, ReplaceEmphaticYou);
             s = CommandYou.Replace(s, m => m.Groups["pre"].Value + m.Groups["v"].Value + " " + CaseHelper.MatchCase(m.Groups["you"].Value, "tu"));
+            s = StartCommandYou.Replace(s, m => m.Groups["pre"].Value + m.Groups["v"].Value + " " + CaseHelper.MatchCase(m.Groups["you"].Value, "tu"));
             s = ObjectYou.Replace(s, ReplaceObject);
             s = SubjectYou.Replace(s, ReplaceSubject);
             s = WaitingForYou.Replace(s, m =>
@@ -2400,7 +2423,7 @@ public sealed class PortugueseConverter
                 return m.Value;
             }
 
-            return trig.Length > 0
+            return trig.Length > 0 || PronounRules.AfterSubordinateSubject(m.Result("$`"))
                 ? trig + te + " " + verb
                 : PortugueseVerbs.AttachEnclitic(verb, te);
         }
@@ -2601,7 +2624,7 @@ public sealed class PortugueseConverter
             NotWordBefore + @"(?<n>gente|alguém|ninguém|todos|todas|pessoas|pessoal|tipo|tipos|homem|homens|mulher|mulheres|miúdo|miúdos|miúda|miúdas|rapaz|rapazes|rapariga|raparigas|criança|crianças|" +
             @"casal|casais|carro|carros|comboio|comboios|polícia|polícias|agente|agentes|soldados|guardas|ele|ela|eles|elas|nós|vocês|mensagem|mensagens|recado|bilhete|" +
             @"carta|e-mail|email|nota|postal|cartaz|placa|aviso|vídeo|foto|fotografia|filho|filhos|filha|filhas|pai|mãe|pais|amigos|amigas|vizinhos|clientes|equipa|outros|outras|algo|alguma\s+coisa|coisa|coisas|nada|vigia|vigias|" +
-            @"você|tu|ti|mim|eu|pessoa|cidadão|cidadãos|cara|caras|gajo|gajos|gaja|gajas|oficial|oficiais|grupo|unidade|modelos|loiras|loiros)\s+" +
+            @"tu|ti|mim|eu|pessoa|cidadão|cidadãos|cara|caras|gajo|gajos|gaja|gajas|oficial|oficiais|grupo|unidade|modelos|loiras|loiros)\s+" +
             Clitic + Gerund, Ci);
 
         // "Há um elevador saindo do chão" → "Há um elevador a sair do chão".
@@ -3328,6 +3351,7 @@ public sealed class PortugueseConverter
             }
 
             if (ProclisisAttractors.Contains(m.Groups["w"].Value) || PortugueseVerbs.IsInfinitive(verb) ||
+                AfterSubordinateSubject(m.Result("$`") + m.Groups["w"].Value) ||
                 PortugueseVerbs.IsFutureOrConditional(verb) || !(PortugueseVerbs.IsKnownVerbForm(verb) || PortugueseVerbs.ThirdToSecond.ContainsKey(verb.ToLowerInvariant())))
             {
                 return m.Value;
@@ -3387,7 +3411,35 @@ public sealed class PortugueseConverter
                     : CaseHelper.MatchCase(verb, "vamos") + " " + PortugueseVerbs.AttachEnclitic(CaseHelper.IsAllUpper(verb) ? "VER" : "ver", p);
             }
 
+            if (trig.Length == 0 && AfterSubordinateSubject(m.Result("$`")))
+            {
+                return p + " " + verb;
+            }
+
             return trig.Length > 0 ? trig + p + " " + verb : PortugueseVerbs.AttachEnclitic(verb, p);
+        }
+
+        // "que a minha mãe", "se o Jack", "quando a polícia": the subordinating word still attracts the pronoun
+        // across a short subject ("que a minha mãe o traiu", not "traiu-o").
+        private static readonly Regex SubordinateSubject = new(
+            @"(?<![\p{L}\p{M}])(?:que|se|quando|porque|onde|embora|enquanto|caso|até\s+que|antes\s+que|depois\s+que)\s+" +
+            @"(?<det>(?:o|a|os|as|um|uma|este|esta|esse|essa|aquele|aquela)\s+)?(?<pos>(?:meu|minha|meus|minhas|teu|tua|teus|tuas|seu|sua|seus|suas|nosso|nossa|nossos|nossas)\s+)?" +
+            @"(?<n>[\p{L}\p{M}-]+)\s*$",
+            RegexOptions.IgnoreCase);
+
+        internal static bool AfterSubordinateSubject(string before)
+        {
+            var m = SubordinateSubject.Match(before);
+            if (!m.Success)
+            {
+                return false;
+            }
+
+            var n = m.Groups["n"].Value;
+            // Without an article the subject must be a name ("que Jack"); in "que conheci me ligou" the word is a verb.
+            return m.Groups["det"].Success || m.Groups["pos"].Success
+                ? !PortugueseVerbs.IsKnownVerbForm(n)
+                : char.IsUpper(n[0]) && !PortugueseVerbs.IsKnownVerbForm(n.ToLowerInvariant());
         }
     }
 
