@@ -2009,6 +2009,24 @@ public sealed class PortugueseConverter
         private static readonly Regex CommandYou = new(
             @"(?<pre>(?:[,;]\s*|" + NotWordBefore + @"(?:então|e|mas|agora|ok)\s+))(?<v>\p{L}+(?<!ia)[ae])\s+(?<you>você)(?=\s*(?:[.!,…]|$))", Ci);
 
+        // "Liga você para ela." → "Liga-lhe." (the pronoun rules attach "lhe"), "Liga você para ela?" → "Ligas tu para ela?".
+        private static readonly Regex DativeYou = new(
+            NotWordBefore + @"(?<v>" + PronounRules.DativeVerbForms + @")\s+(?<you>você)\s+(?=para\s+(?:ele|ela|eles|elas|mim|nós)" + NotWordAfter + ")", Ci);
+
+        private static string ReplaceDativeYou(Match m)
+        {
+            var verb = m.Groups["v"].Value;
+            var end = Regex.Match(m.Result("$'"), @"[.!?…\n]");
+            if (end.Success && end.Value == "?")
+            {
+                return PortugueseVerbs.TryThirdToSecond(verb, out var second)
+                    ? CaseHelper.MatchCase(verb, second) + " " + CaseHelper.MatchCase(m.Groups["you"].Value, "tu") + " "
+                    : m.Value;
+            }
+
+            return verb + " ";
+        }
+
         // "Manda você." / "- Decide você!" → "Manda tu.": a short command at the start of a sentence, "você" is its subject.
         private static readonly Regex StartCommandYou = new(
             @"(?<pre>(?:^|[.!?…]\s+|\n|(?<![\p{L}\p{M}])[-–—]\s*))(?<v>manda|decide|escolhe|começa|faz|liga|conduz|avisa|paga|abre|entra|pergunta|explica|conta|tenta|experimenta|atende|joga|fala|diz|vai|vem|sai|fica|vê|pega|leva|escreve|toca|canta|dança|primeiro|segue|chama|responde)\s+(?<you>você)(?=\s*(?:[.!…]|$))", Ci);
@@ -2131,6 +2149,7 @@ public sealed class PortugueseConverter
             });
             s = YouAnd.Replace(s, m => CaseHelper.MatchCase(m.Groups["w"].Value, "tu"));
             s = EmphaticYou.Replace(s, ReplaceEmphaticYou);
+            s = DativeYou.Replace(s, ReplaceDativeYou);
             s = CommandYou.Replace(s, m => m.Groups["pre"].Value + m.Groups["v"].Value + " " + CaseHelper.MatchCase(m.Groups["you"].Value, "tu"));
             s = StartCommandYou.Replace(s, m => m.Groups["pre"].Value + m.Groups["v"].Value + " " + CaseHelper.MatchCase(m.Groups["you"].Value, "tu"));
             s = ObjectYou.Replace(s, ReplaceObject);
@@ -2436,15 +2455,18 @@ public sealed class PortugueseConverter
         {
             var verb = m.Groups["v"].Value;
             var explicitTu = m.Groups["you"].Value.Equals("tu", StringComparison.OrdinalIgnoreCase);
+            var wordBefore = Regex.Match(m.Result("$`"), @"(?<w>\p{L}+)\s+$").Groups["w"].Value;
             if (explicitTu && (PortugueseVerbs.IsSecondPersonForm(verb) ||
-                Regex.IsMatch(verb, @"(?:aste|este|iste)$", Ci)))
+                Regex.IsMatch(verb, @"(?:aste|este|iste|ando|endo|indo|ondo)$", Ci) ||
+                // "Ligas tu para ela?" - "para" here is the preposition, not the verb parar.
+                (!m.Groups["sub"].Success && verb.Equals("para", StringComparison.OrdinalIgnoreCase) && wordBefore.Length > 0 && PortugueseVerbs.IsSecondPersonForm(wordBefore))))
             {
                 return m.Value;
             }
 
             // "Olha só você a fazer isso" - here "a" is the preposition before an infinitive, not "ela".
             if (!m.Groups["sub"].Success && m.Groups["cl"].Value == "a" && m.Groups["adv"].Value.Trim().Length == 0 &&
-                verb.EndsWith('r') && !PortugueseVerbs.TryThirdToSecond(verb, out _))
+                verb.EndsWith('r') && !Regex.IsMatch(verb, @"^(?:re)?quer$", Ci))
             {
                 return m.Value;
             }
@@ -3268,6 +3290,7 @@ public sealed class PortugueseConverter
             s = NounSubjectClitic.Replace(s, ReplaceNounSubject);
             s = ObjectPronoun.Replace(s, ReplaceObject);
             s = CausativeInfinitive.Replace(s, m => m.Groups["pre"].Value + m.Groups["inf"].Value);
+            s = DativePara.Replace(s, ReplaceDativePara);
             return s;
         }
 
@@ -3419,6 +3442,92 @@ public sealed class PortugueseConverter
             return trig.Length > 0 ? trig + p + " " + verb : PortugueseVerbs.AttachEnclitic(verb, p);
         }
 
+        private const string ArEndings =
+            "o|as|a|amos|am|e|es|em|emos|ei|aste|ou|ámos|aram|ava|avas|ávamos|avam|ar|ares|armos|arem|ará|arás|arei|aremos|arão|aria|arias|aríamos|ariam|asse|asses|assem|ando";
+
+        private const string ErEndings =
+            "o|es|e|emos|em|a|as|am|i|este|eu|eram|ia|ias|íamos|iam|er|eres|ermos|erem|erá|erás|erei|eremos|erão|eria|erias|eríamos|eriam|esse|essem|endo";
+
+        // Verbs whose Brazilian "para + pronoun" is an indirect object in Portugal: "Liga para ela" → "Liga-lhe".
+        internal const string DativeVerbForms =
+            "(?:(?:lig|ligu|telefon|pergunt|cont|expli(?:c|qu)|mostr|mand|envi|ensin|pag|pagu)(?:" + ArEndings + ")|" +
+            "(?:escrev|respond)(?:" + ErEndings + ")|" +
+            "digo|dizes|diz|dizemos|dizem|diga|digas|digam|disse|disseste|dissemos|disseram|dizia|dizias|diziam|dizer|dizeres|dizerem|direi|dirá|dirás|diremos|dirão|diria|dirias|diriam|dissesse|dissessem|dizendo|" +
+            "peço|pedes|pede|pedimos|pedem|peça|peças|peçam|pedi|pediste|pediu|pediram|pedia|pedias|pediam|pedir|pedires|pedirem|pedirei|pedirá|pedirás|pediremos|pedirão|pediria|pedirias|pediriam|pedisse|pedissem|pedindo|" +
+            "minto|mentes|mente|mentimos|mentem|minta|mintas|mintam|menti|mentiste|mentiu|mentiram|mentia|mentias|mentiam|mentir|mentires|mentirem|mentirei|mentirá|mentirás|mentiremos|mentirão|mentiria|mentiriam|mentisse|mentindo)";
+
+        private static readonly Regex DativePara = new(
+            @"(?<trig>" + NotWordBefore + @"(?:não|nunca|jamais|também|já|ainda|só|nem|sempre|que|quem|porque|onde|quando|como|talvez)\s+)?" +
+            NotWordBefore + @"(?<v>" + DativeVerbForms + @")\s+para\s+(?<p>ele|ela|eles|elas|mim|ti|nós|você|vocês)" + NotWordAfter +
+            @"(?!\s+(?:mesm[oa]s?|própri[oa]s?|só|sozinh[oa]s?|e\s+(?:para|a|ao|à|o)|ou\s+(?:para|a|ao|à|o))" + NotWordAfter + ")", Ci);
+
+        // "Pedi para ele sair" → "Pedi-lhe para sair": with these the pronoun is the one asked/told/paid to do something.
+        private static readonly Regex RequestVerb = new(@"^(?:pe[dç]|dig|diz|diss|dir|pag)", RegexOptions.IgnoreCase);
+
+        private static readonly Regex NounBefore = new(
+            @"(?<![\p{L}\p{M}])(?:um|uma|o|a|os|as|uns|umas|essa|esse|esta|este|essas|estas|outra|outro|outras|minha|meu|tua|teu|sua|seu|nossa|nosso|alguma|algum|algumas|alguns|nenhuma|última|primeira|mais|cuja|cujo|duas|três|várias|muitas|poucas|" +
+            @"tenho|tens|tem|temos|têm|tiver|tiveres|tiverem|tinha|tinhas|tinham|há|havia|houver)\s+$",
+            RegexOptions.IgnoreCase);
+
+        private static string ReplaceDativePara(Match m)
+        {
+            var verb = m.Groups["v"].Value;
+            var trig = m.Groups["trig"].Value;
+            var before = m.Result("$`") + trig;
+            var after = m.Result("$'");
+            var infinitive = PortugueseVerbs.IsInfinitive(verb);
+            // "Está a mentir para mim": "a" before an infinitive is the preposition, not an article.
+            if (trig.Length == 0 && ((NounBefore.IsMatch(before) && !(infinitive && Regex.IsMatch(before, @"(?<![\p{L}\p{M}])(?:a|o)\s+$", RegexOptions.IgnoreCase))) ||
+                Regex.IsMatch(before, infinitive ? @"(?<![\p{L}\p{M}])(?:me|te|se|lhe|lhes|nos|vos)\s+$" : @"(?<![\p{L}\p{M}])(?:me|te|se|lhe|lhes|nos|vos|o|a|os|as)\s+$", RegexOptions.IgnoreCase)))
+            {
+                return m.Value;
+            }
+
+            // "Isso não conta para ele" means "it does not count for him".
+            if (Regex.IsMatch(verb, @"^cont(?:a|am)$", RegexOptions.IgnoreCase) &&
+                Regex.IsMatch(before, @"(?<![\p{L}\p{M}])(?:isso|isto|aquilo|tudo|nada|que)\s+(?:(?:não|só|também|já|ainda)\s+)?$", RegexOptions.IgnoreCase))
+            {
+                return m.Value;
+            }
+
+            // "Liguei para ele saber" (so that he knows) is not "liguei-lhe"; only request verbs take an infinitive after the pronoun.
+            var next = Regex.Match(after, @"^\s+(?:(?:me|te|se|nos|vos|lhe|lhes|o|os|as)\s+)?(?<w>\p{L}+)", RegexOptions.IgnoreCase).Groups["w"].Value;
+            var infinitiveNext = next.Length > 0 &&
+                (PortugueseVerbs.IsInfinitive(next) || Regex.IsMatch(next, @"(?:arem|erem|irem)$", RegexOptions.IgnoreCase));
+            if (infinitiveNext && !RequestVerb.IsMatch(verb))
+            {
+                return m.Value;
+            }
+
+            var para = infinitiveNext ? (CaseHelper.IsAllUpper(verb) && verb.Length > 1 ? " PARA" : " para") : string.Empty;
+
+            var clitic = m.Groups["p"].Value.ToLowerInvariant() switch
+            {
+                "ele" or "ela" or "você" => "lhe",
+                "eles" or "elas" => "lhes",
+                "mim" => "me",
+                "ti" => "te",
+                "nós" => "nos",
+                _ => "vos",
+            };
+            if (CaseHelper.IsAllUpper(verb) && verb.Length > 1)
+            {
+                clitic = clitic.ToUpperInvariant();
+            }
+
+            if (trig.Length > 0 || (!infinitive && AfterSubordinateSubject(m.Result("$`"))))
+            {
+                return trig + clitic + " " + verb + para;
+            }
+
+            if (!infinitive && PortugueseVerbs.IsFutureOrConditional(verb))
+            {
+                return (PortugueseVerbs.AttachMesoclitic(verb, clitic, requireTransitive: false) ?? clitic + " " + verb) + para;
+            }
+
+            return PortugueseVerbs.AttachEnclitic(verb, clitic) + para;
+        }
+
         // "que a minha mãe", "se o Jack", "quando a polícia": the subordinating word still attracts the pronoun
         // across a short subject ("que a minha mãe o traiu", not "traiu-o").
         private static readonly Regex SubordinateSubject = new(
@@ -3436,6 +3545,11 @@ public sealed class PortugueseConverter
             }
 
             var n = m.Groups["n"].Value;
+            if (!m.Groups["det"].Success && !m.Groups["pos"].Success && n.ToLowerInvariant() is "eu" or "tu" or "ele" or "ela" or "nós" or "eles" or "elas")
+            {
+                return true;
+            }
+
             // Without an article the subject must be a name ("que Jack"); in "que conheci me ligou" the word is a verb.
             return m.Groups["det"].Success || m.Groups["pos"].Success
                 ? !PortugueseVerbs.IsKnownVerbForm(n)
@@ -3486,6 +3600,10 @@ public sealed class PortugueseConverter
         private static readonly Regex NotCommandPhrase = new(
             CommandStart + @"(?:seja|venha|aconteça|custe|doa|queira)\s+(?:como|o\s+que|quem|qual|quando|onde|lá|o\s+que\s+for)" + NotWordAfter, Ci);
 
+        // "Só me ligue." / "Só lhe peça para sair." → "Só me liga." / "Só lhe pede para sair.".
+        private static readonly Regex OnlyCommand = new(
+            @"(?<pre>" + CommandStart + @"(?:só|apenas)\s+)(?:(?<cl>me|se|nos|o|a|os|as|lhe|lhes)\s+)?(?<v>\p{L}+)" + NotWordAfter + @"(?!-)", Ci);
+
         // "Não fale com ela" / "Não se preocupe" → "Não fales com ela" / "Não te preocupes".
         private static readonly Regex NegativeCommand = new(
             @"(?<pre>" + CommandStart + @")(?<no>não)\s+(?:(?<cl>me|se|nos|o|a|os|as|lhe|lhes)\s+)?(?<v>\p{L}+)" + NotWordAfter + @"(?!-)", Ci);
@@ -3517,6 +3635,15 @@ public sealed class PortugueseConverter
                     {
                         return ConvertNegative(text, negative);
                     }
+                }
+
+                var only = OnlyCommand.Match(text);
+                if (only.Success && char.IsUpper(only.Groups["pre"].Value.TrimStart(' ', '-', '–', '—', '"', '“', '«', '\'')[0]) &&
+                    ToTu(only.Groups["v"].Value) is { } onlyTu && !NotCommands.Contains(only.Groups["v"].Value))
+                {
+                    var cl = only.Groups["cl"];
+                    var clitic = cl.Success ? (cl.Value.Equals("se", StringComparison.OrdinalIgnoreCase) ? CaseHelper.MatchCase(cl.Value, "te") : cl.Value) + " " : string.Empty;
+                    return only.Groups["pre"].Value + clitic + CaseHelper.MatchCase(only.Groups["v"].Value, onlyTu) + text[(only.Index + only.Length)..];
                 }
 
                 var converted = false;

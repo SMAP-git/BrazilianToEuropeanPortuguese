@@ -334,6 +334,12 @@ Rules found by comparing the output against real PT-PT subtitles:
 - *Olha (só) você* → *Olha (só) para ti*, also with a gerund: *Olha só você fazendo uma entrada* → *Olha só
   para ti a fazer uma entrada*. A short command at the start of a sentence keeps *você* as its subject:
   *Manda você.* → *Manda tu.* (*Incomoda você?* → *Incomoda-te?*).
+- *para* + pronoun after verbs of telling, asking, calling, showing, paying or lying becomes the indirect-object
+  pronoun: *Liga para ela* → *Liga-lhe*, *Não liguei para eles* → *Não lhes liguei*, *Ligarei para ela* →
+  *Ligar-lhe-ei*, *Está mentindo para mim* → *Está a mentir-me*, *Pedi para ele sair* → *Pedi-lhe para sair*.
+  *Liga você para ela.* → *Liga-lhe.*, but the question keeps the stressed subject: *Ligas tu para ela?*.
+  *olhar/levar/falar/dar para…*, nouns (*uma pergunta para ela*), *isso conta para ele* and *liguei para ele
+  saber* are kept. *Só/Apenas* + command also takes the *tu* form: *Só me ligue* → *Só me liga*.
 - *até o/a* → *até ao/à* before a destination or a limit: *levou-o até o estoque* → *até ao stock*,
   *até o fim*, *até as 19h* → *até às 19h*. *Até o pai sabe* ("even") and *até o Farooq aparecer* are kept.
 - *conferir* → *verificar*; *o álibi confere*, *isso confere com…* → *bate certo*.
