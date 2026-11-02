@@ -63,6 +63,25 @@ internal static class PortugueseVerbs
         "desapontar", "decepcionar", "expulsar", "demitir", "despedir", "sequestrar", "raptar", "apanhar", "agarrar", "largar",
         "abandonar", "trair", "chantagear", "ameaçar", "denunciar", "substituir", "treinar", "impedir", "deter", "interrogar",
         "investigar", "aceitar", "enterrar", "tirar", "vigiar", "testar", "avaliar", "obrigar", "forçar", "prejudicar",
+        "mencionar", "mandar", "usar", "entregar", "separar", "impressionar", "estrangular", "caçar", "comer", "sacanear",
+        "dissuadir", "ferir", "criar", "algemar", "ensinar", "distrair", "socar", "recrutar", "verificar", "rejeitar",
+        "subestimar", "pressionar", "citar", "inventar", "desafiar", "atualizar", "cheirar", "espionar", "vender", "rastrear",
+        "superar", "vaiar", "derrubar", "abordar", "liquidar", "atrasar", "conquistar", "invejar", "alcançar", "traumatizar",
+        "envolver", "chutar", "revistar", "drogar", "atropelar", "calar", "afastar", "elogiar", "convocar", "juntar",
+        "resgatar", "namorar", "controlar", "levantar", "provocar", "sacrificar", "desligar", "algemar", "amarrar", "apertar",
+        "assassinar", "atropelar", "avistar", "beliscar", "capturar", "cercar", "cumprimentar", "deixar", "desmascarar",
+        "despir", "dominar", "educar", "empregar", "encurralar", "enfrentar", "enganar", "esfaquear", "esmagar", "espancar",
+        "estragar", "examinar", "humilhar", "identificar", "interromper", "irritar", "libertar", "localizar", "mencionar",
+        "molestar", "odiar", "operar", "perseguir", "persuadir", "picar", "prender", "processar", "proibir", "raptar",
+        "receber", "salvar", "seduzir", "sufocar", "torturar", "transferir", "vestir", "acalmar", "alimentar", "amaldiçoar",
+    };
+
+    // Present-tense "tu" forms that are more often plural nouns ("as chamas", "as provas").
+    private static readonly HashSet<string> SecondPersonNouns = new(StringComparer.Ordinal)
+    {
+        "chamas", "provas", "contas", "marcas", "visitas", "notas", "cobras", "trocas", "culpas", "esperas", "ajudas", "mudas",
+        "pegas", "buscas", "desculpas", "levas", "operas", "picas", "cercas", "juntas", "criadas", "vendas", "receitas", "salvas",
+        "torturas", "drogas", "citas", "pressas", "dominas", "fechas", "lavas", "limpas", "trancas", "seguras", "olhas", "ligas",
     };
 
     /// <summary>Irregular "você" → "tu" forms (present, past, imperfect, subjunctive, future subjunctive).</summary>
@@ -130,6 +149,10 @@ internal static class PortugueseVerbs
         "perco", "perde", "perdemos", "perdem", "perdi", "perdeu", "perderam", "perca", "perder",
         "quero", "quer", "queremos", "querem", "quis", "quiseram", "queria", "querer", "queira", "queiram", "quisesse", "quisessem", "ter",
         "odeio", "odeia", "odiamos", "odeiam", "odiei", "odiou", "odiar",
+        "mantenho", "mantém", "mantemos", "mantêm", "mantive", "manteve", "mantivemos", "mantiveram", "mantinha", "mantenha", "manter", "mantiveste", "manténs",
+        "traio", "trai", "traímos", "traem", "traí", "traiu", "traíram", "traía", "traia", "trair", "traíste", "trais",
+        "viste", "vês", "vias", "fizeste", "fazes", "fazias", "trouxeste", "trazes", "puseste", "pões", "ouviste", "ouves",
+        "seguiste", "segues", "perdeste", "perdes", "quiseste", "queres", "querias", "odiaste", "odeias",
     };
 
     private static readonly HashSet<string> InfinitiveStopWords = new(StringComparer.OrdinalIgnoreCase)
@@ -260,6 +283,9 @@ internal static class PortugueseVerbs
             if (TransitiveInfinitives.Contains(verb))
             {
                 transitive.UnionWith(forms.ObjectForms);
+                // "Viste ele?" / "Se deixarem ela" → "Viste-o?" / "Se a deixarem": a "tu" verb cannot have "ele" as its subject.
+                transitive.UnionWith(forms.ThirdToSecond.Select(f => f.Second).Where(f => !SecondPersonNouns.Contains(f)));
+                transitive.Add(verb + "em");
             }
         }
 

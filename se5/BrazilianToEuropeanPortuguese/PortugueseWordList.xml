@@ -1103,4 +1103,5 @@
   <Word br="que time" pt="que equipa" />
   <Verb br="compartilhar" pt="partilhar" />
   <Verb br="malhar" pt="treinar" skip="malhado malhada malhados malhadas" />
+  <Verb br="conferir" pt="verificar" skip="confere conferem conferia conferiam conferido conferida conferidos conferidas" />
 </Words>

@@ -325,6 +325,23 @@ Rules found by comparing the output against real PT-PT subtitles:
   *Cansei das/dos…* → *Fartei-me das/dos…*.
 - A preposition or article typed twice, also across the line break, is removed: *o mérito de / de serem*
   → *o mérito / de serem*, *Vou de de carro* → *Vou de carro* (*para para pensar* and *de A a Z* are kept).
+- *ele/ela/eles/elas* as an object become a clitic also after *tu* verbs and infinitives: *Não menciones eles*
+  → *Não os menciones*, *Comeste ela?* → *Comeste-a?*, *usar ela* → *usá-la*, *Acho ele bonito* → *Acho-o bonito*
+  (*Pode ser ele*, *Lá vem ele* are kept); *mandá-los fazerem* → *mandá-los fazer*. A clause-initial command
+  keeps *você* as the subject: *Então manda você.* → *Então manda tu.*
+- *até o/a* → *até ao/à* before a destination or a limit: *levou-o até o estoque* → *até ao stock*,
+  *até o fim*, *até as 19h* → *até às 19h*. *Até o pai sabe* ("even") and *até o Farooq aparecer* are kept.
+- *conferir* → *verificar*; *o álibi confere*, *isso confere com…* → *bate certo*.
+- *ser* + possessive gets the article: *É meu primeiro dia* → *É o meu primeiro dia*, *Qual é teu nome?*
+  → *Qual é o teu nome?*. People and relationship nouns and *culpa/ideia/intenção* stay bare, as is
+  usual in Portugal (*Ele é meu filho*, *Não é tua culpa*).
+- A noun that changed gender also changes the adjective after *de …* + *está/é/ficou…*:
+  *O duto de ventilação está entupido* → *A conduta de ventilação está entupida*.
+- More gerunds become *a* + infinitive: after *tudo/mais/meio que* (*Estava tudo dando certo*), after a time
+  span (*há dois anos trabalhando*, *virei a noite puxando*), after *há algo/alguém…*, after people and
+  pronouns (*uma pessoa tentando*, *eu piorando*), after *apanhado* and in short questions (*Invadindo a
+  casa dele?* → *A invadir a casa dele?*). Adverbial gerunds that are also normal in Portugal (*Tendo em
+  conta…*, *…, dizendo que…*) are kept.
 - *de boa* → *na boa* only at the end of a phrase (*Estou de boa.*), not in *o tipo de boa vizinha*.
 - A rule never merges the two lines of a subtitle: if a change joins words across the line break
   (*por\nque* → *porque*), the line break is put back at the closest space.

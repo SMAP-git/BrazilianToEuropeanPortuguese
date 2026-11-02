@@ -187,7 +187,7 @@ public sealed class ReferenceTests(ITestOutputHelper output)
         "Carta de condução da Flórida.\nJá temos impressões digitais e a sua foto.",
         "Carta de condução da Flórida.\nJá temos impressões digitais e a tua foto.")]
     [InlineData("Esta foi sua última mensagem\npara nós.", "This was his last message to us,",
-        "Esta foi sua última mensagem\npara nós.", "Esta foi tua última mensagem\npara nós.")]
+        "Esta foi a sua última mensagem\npara nós.", "Esta foi a tua última mensagem\npara nós.")]
     [InlineData("Já até mandei suas coisas.", "I already sent him his stuff.",
         "Até, já lhe mandei as suas coisas.", "Já até mandei as tuas coisas.")]
     [InlineData("Está bem?", "Is he okay?", "Está bem?", "Estás bem?")]
