@@ -551,6 +551,26 @@ public sealed class PortugueseConverter
     {
         var masks = new List<string>();
         var s = Mask(text, masks, laterPass);
+        if (_options.Colloquial && reference is { InclusiveContinuation: true })
+        {
+            s = InclusiveContinuation.Replace(s, m =>
+                m.Groups["pre"].Value + CaseHelper.MatchCase(m.Groups["v"].Value, m.Groups["v"].Value.ToLowerInvariant() switch
+                { "acha" => "achamos", "pensa" => "pensamos", _ => "imaginamos" }) +
+                m.Groups["que"].Value + "vá" + m.Groups["event"].Value + "connosco");
+        }
+        if (_options.Vocabulary && _options.Pronouns && reference is { CatchUpLater: true })
+        {
+            s = CatchUpLater.Replace(s, m => m.Groups["pre"].Value + CaseHelper.MatchCase(m.Groups["v"].Value,
+                "depois " + (m.Groups["p"].Value.Equals("vocês", StringComparison.OrdinalIgnoreCase) ? "apanho-vos" : "apanho-te")));
+        }
+        if (_options.Pronouns)
+        {
+            s = RelativeFalar.Replace(s, m =>
+                m.Groups["pre"].Value + (CaseHelper.IsAllUpper(m.Value) ? "DE " : "de ") + m.Groups["que"].Value +
+                m.Groups["sp"].Value + CaseHelper.MatchCase(m.Groups["p"].Value,
+                    m.Groups["p"].Value.ToLowerInvariant() switch { "vocês" => "vos", "ele" or "ela" or "você" => "lhe", "eles" or "elas" => "lhes", "nós" => "nos", "mim" => "me", _ => "te" }) +
+                " " + m.Groups["v"].Value);
+        }
 
         if (_options.Colloquial)
         {
@@ -700,6 +720,14 @@ public sealed class PortugueseConverter
     private static readonly Regex NeverIndefiniteObject = new(
         NotWordBefore + @"(?<pre>nunca\s+(?:(?:me|te|se|nos|lhe|lhes)\s+)?)(?<v>\p{L}+)(?<sp>\s+)(?<det>nenhum|nenhuma)(?=\s+\p{L})",
         Ci);
+
+    private static readonly Regex InclusiveContinuation = new(
+        @"(?<pre>^\s*mas\s+nunca\s+)(?<v>acha|pensa|imagina)(?<que>\s+que\s+)vai(?<event>\s+acontecer\s+)(?:contigo|com\s+você)" + NotWordAfter, Ci);
+    private static readonly Regex CatchUpLater = new(
+        @"(?<pre>(?:^|[.!?]\s+)(?:eu\s+)?)(?<v>alcanço)\s+(?<p>vocês|você)\s+(?:depois|mais\s+tarde)" + NotWordAfter, Ci);
+    private static readonly Regex RelativeFalar = new(
+        @"(?<pre>(?<![\p{L}\p{M}])(?:este|esse|aquele|esta|essa|aquela)\s+é\s+(?:o|a)\s+[\p{L}\p{M}]+(?:\s+[\p{L}\p{M}]+){0,2}\s+)" +
+        @"(?<que>que)(?<sp>\s+)(?<v>falei|falaste|falou|falámos|falamos|falaram|falava|falávamos)\s+(?:para|pra)\s+(?<p>vocês|você|ele|ela|eles|elas|nós|mim|ti)" + NotWordAfter, Ci);
 
     private static readonly Dictionary<string, string> IrregularFutureSubjunctive = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -2011,7 +2039,8 @@ public sealed class PortugueseConverter
                     "fala" => "diz", "falas" => "dizes", "falam" => "dizem", _ => "dissemos",
                 }) + m.Groups["cl"].Value),
             (new Regex(NotWordBefore + @"(?<p>eu|te|lhe|vos)\s+(?<v>falei)(?=\s*[.!…]|\s*$)", Ci),
-                m => m.Groups["p"].Value + " " + CaseHelper.MatchCase(m.Groups["v"].Value, "disse")),
+                m => Regex.IsMatch(m.Result("$`"), @"\bde\s+que\s*$", Ci) ? m.Value :
+                    m.Groups["p"].Value + " " + CaseHelper.MatchCase(m.Groups["v"].Value, "disse")),
             (new Regex(@"(?<pre>(?:^|[.!?…:;,]\s+|\n|(?<![\p{L}\p{M}])[-–—]\s*|[\uE000-\uF8FF]\s*)[""“«']?)(?<w>foi\s+mal)(?=\s*[.!…,]|\s*$)", Ci),
                 m => m.Groups["pre"].Value + CaseHelper.MatchCase(m.Groups["w"].Value, "desculpa")),
             (new Regex(@"(?<pre>(?:^|[.!?…:;,]\s+|\n|(?<![\p{L}\p{M}])[-–—]\s*|[\uE000-\uF8FF]\s*)[""“«']?)(?<w>é\s+sério)(?=\s*[?!])", Ci),

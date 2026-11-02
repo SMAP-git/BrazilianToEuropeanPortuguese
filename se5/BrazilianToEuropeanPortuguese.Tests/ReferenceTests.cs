@@ -21,6 +21,31 @@ public sealed class ReferenceTests(ITestOutputHelper output)
     private static SrtBlock Cue(long start, long end, string text) => new() { StartMs = start, EndMs = end, Text = text };
 
     [Theory]
+    [InlineData("acha", "achamos")]
+    [InlineData("pensa", "pensamos")]
+    [InlineData("imagina", "imaginamos")]
+    public void InclusiveWeContinuesAcrossAdjacentCues(string verb, string plural)
+    {
+        var source = $"mas nunca {verb} que vai acontecer contigo.";
+        var blocks = new[] { Cue(0, 1500, "A gente sempre escuta,"), Cue(1501, 3000, source) };
+        var english = new string?[] { "You just hear about this stuff.", "Never think it's going to happen to you." };
+        var hint = ReferenceHint.FromContext(blocks, 1, english);
+        Assert.True(hint!.InclusiveContinuation);
+        Assert.Equal($"mas nunca {plural} que vá acontecer connosco.", Converter.Convert(source, blocks[0].Text, hint));
+        blocks[1].StartMs = 7000;
+        Assert.False(ReferenceHint.FromContext(blocks, 1, english)!.InclusiveContinuation);
+    }
+
+    [Theory]
+    [InlineData("Ela sempre escuta,", "Never think it's going to happen to you.")]
+    [InlineData("A gente sempre escuta,", "He never thinks it's going to happen to you.")]
+    public void InclusiveContinuationDoesNotGuessAnotherSubject(string previous, string english)
+    {
+        var blocks = new[] { Cue(0, 1500, previous), Cue(1501, 3000, "mas nunca acha que vai acontecer contigo.") };
+        Assert.False(ReferenceHint.FromContext(blocks, 1, new string?[] { null, english })!.InclusiveContinuation);
+    }
+
+    [Theory]
     [InlineData("You just hear about this stuff.", true)]
     [InlineData("We always heard about it.", true)]
     [InlineData("She hears about these things.", true)]

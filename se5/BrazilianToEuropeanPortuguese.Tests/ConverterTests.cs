@@ -10,6 +10,24 @@ public sealed class ConverterTests
     private static void AssertConverts(string br, string pt) => Assert.Equal(pt, Converter.Convert(br));
 
     [Theory]
+    [InlineData("Este é o detetive que falei para vocês.", "Este é o detetive de que vos falei.")]
+    [InlineData("Esta é a professora que falei para ela.", "Esta é a professora de que lhe falei.")]
+    [InlineData("Esse é o livro que falei para nós.", "Esse é o livro de que nos falei.")]
+    [InlineData("Este é o detetive que\nfalei para vocês.", "Este é o detetive de que\nvos falei.")]
+    public void RelativeFalarUsesPrepositionAndDative(string source, string expected)
+    {
+        Assert.Equal(expected, Converter.Convert(source));
+        Assert.Equal(expected, Converter.Convert(expected));
+    }
+
+    [Theory]
+    [InlineData("Eu alcanço vocês depois.", "I'll catch you guys later.", "Eu depois apanho-vos.")]
+    [InlineData("Alcanço você mais tarde.", "I'll catch you later.", "Depois apanho-te.")]
+    [InlineData("Eu alcanço vocês depois.", "I reach you later.", "Eu alcanço vocês depois.")]
+    public void CatchUpLaterUsesReferenceIdiom(string source, string english, string expected) =>
+        Assert.Equal(expected, Converter.Convert(source, null, ReferenceHint.FromText(english)));
+
+    [Theory]
     [InlineData("Vamos pegar este cara.", "Vamos apanhar este tipo.")]
     [InlineData("Pegou o suspeito.", "Apanhou o suspeito.")]
     [InlineData("Peguem esses criminosos.", "Apanhem esses criminosos.")]

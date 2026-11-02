@@ -358,6 +358,13 @@ Rules found by comparing the output against real PT-PT subtitles:
   Verb agreement uses the existing irregular table and dictionary-validated regular inflections, not a closed
   list of verbs. In a *que* clause with an auxiliary, dative clitics move before the auxiliary:
   *que vou facilitar para você* → *que te vou facilitar*.
+- Demonstrative introductions with a *falar* relative restore *de* and the indirect object:
+  *Este é o professor que falei para vocês* → *Este é o professor de que vos falei*.
+  Aligned English *catch you … later* guides *Eu alcanço vocês depois* → *Eu depois apanho-vos*.
+  An adjacent original *a gente/nós* cue can establish inclusive agreement in
+  *mas nunca acha/pensa/imagina que vai acontecer contigo* → *mas nunca achamos/pensamos/imaginamos
+  que vá acontecer connosco*. This requires a gap of at most 5 seconds and, if English is aligned,
+  second-person reference evidence without a conflicting *he/she/they* subject. The standard spelling is *connosco*.
 - Catching a person uses *apanhar*, across supported *pegar* inflections and demonstratives:
   *Vamos pegar este cara* → *Vamos apanhar este tipo*, *pegou o suspeito* → *apanhou o suspeito*.
   Physical objects still use *pegar em* and fetching keeps *buscar*; *tipo de …* is not treated as a person.

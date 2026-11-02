@@ -12,10 +12,20 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
 {
     /// <summary>A nearby explicit form of address establishes a formal dialogue register.</summary>
     public bool FormalAddress { get; init; }
+    public bool InclusiveContinuation { get; init; }
+    public bool CatchUpLater { get; init; }
 
     public static ReferenceHint? FromContext(IReadOnlyList<SrtBlock> source, int index, IReadOnlyList<string?>? english = null)
     {
         var hint = FromText(english?[index]);
+        if (index > 0 && source[index].StartMs - source[index - 1].EndMs <= 5000 &&
+            Regex.IsMatch(source[index - 1].Text, @"(?<!\p{L})(?:a\s+gente|nós)\b", RegexOptions.IgnoreCase) &&
+            Regex.IsMatch(source[index].Text, @"^\s*mas\s+nunca\s+(?:acha|pensa|imagina)\s+que\b", RegexOptions.IgnoreCase) &&
+            (english == null || hint is { SecondPerson: true } &&
+             !Regex.IsMatch(english[index] ?? string.Empty, @"\b(?:he|she|they)\b", RegexOptions.IgnoreCase)))
+        {
+            hint = (hint ?? new ReferenceHint(false, false, false, false)) with { InclusiveContinuation = true };
+        }
         return DialogueRegister.IsFormal(source, index, english)
             ? (hint ?? new ReferenceHint(false, false, false, false)) with { FormalAddress = true }
             : hint;
@@ -156,6 +166,7 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
             StartsWithSecondPersonSubject = startsWithSecondPersonSubject,
             NeverAnyObject = NeverAny.IsMatch(clean),
             HearAbout = HearingAbout.IsMatch(clean) && !Regex.IsMatch(clean, @"\blisten(?:s|ed|ing)?\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant),
+            CatchUpLater = Regex.IsMatch(clean, @"\bcatch(?:\s+up\s+with)?\s+you(?:\s+guys|\s+all)?\s+later\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant),
             Past = past && !modal, Present = present && !past && !modal };
     }
 }

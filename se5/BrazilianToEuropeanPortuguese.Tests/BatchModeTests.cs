@@ -29,6 +29,14 @@ public sealed class BatchModeTests : IDisposable
         SubRipParser.Parse(response.Subtitle!.Native).Select(b => b.Text).ToList();
 
     [Fact]
+    public void Batch_InclusiveContinuationUsesOriginalPreviousCue()
+    {
+        var response = BatchMode.BuildBatchResponse(Request("A gente sempre escuta,", "mas nunca acha que vai acontecer contigo."),
+            WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Escutamos sempre,", "mas nunca achamos que vá acontecer connosco." }, Texts(response));
+    }
+
+    [Fact]
     public void Batch_FormalDialogueContextUsesEarlierAndLaterAddress()
     {
         var response = BatchMode.BuildBatchResponse(Request("Sr. diretor, um momento.", "Não sei.", "Certo, veja...", "Não fale comigo.", "O estoque acabou."),
