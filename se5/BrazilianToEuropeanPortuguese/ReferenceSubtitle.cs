@@ -57,6 +57,9 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
     /// <summary>The reference uses never + verb + any as an object, not "any more/longer".</summary>
     public bool NeverAnyObject { get; init; }
 
+    /// <summary>Hearing about news/events, not deliberately listening to a person or sound.</summary>
+    public bool HearAbout { get; init; }
+
     /// <summary>
     /// The English says "this/these" and never "that/those": Brazilian "isso/esse" (used for both) is pt-PT "isto/este".
     /// </summary>
@@ -99,6 +102,9 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     private static readonly Regex NeverAny = new(
         @"\bnever\s+(?:\p{L}+\s+){1,3}any\s+(?!more\b|longer\b)\p{L}+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    private static readonly Regex HearingAbout = new(
+        @"\b(?:hear|hears|heard|hearing)\s+(?:(?:always|often|never|ever|just|sometimes|usually)\s+){0,2}about\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     /// <summary>The reference says "his/her/their" and not "your": keep "o seu/a sua".</summary>
     public bool KeepsThirdPersonPossessive => ThirdPossessive && !SecondPossessive;
@@ -149,6 +155,7 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
             SecondPersonSubject = secondPersonSubject,
             StartsWithSecondPersonSubject = startsWithSecondPersonSubject,
             NeverAnyObject = NeverAny.IsMatch(clean),
+            HearAbout = HearingAbout.IsMatch(clean) && !Regex.IsMatch(clean, @"\blisten(?:s|ed|ing)?\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant),
             Past = past && !modal, Present = present && !past && !modal };
     }
 }

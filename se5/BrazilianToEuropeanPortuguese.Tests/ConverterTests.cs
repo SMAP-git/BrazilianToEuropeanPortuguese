@@ -10,6 +10,41 @@ public sealed class ConverterTests
     private static void AssertConverts(string br, string pt) => Assert.Equal(pt, Converter.Convert(br));
 
     [Theory]
+    [InlineData("Vamos pegar este cara.", "Vamos apanhar este tipo.")]
+    [InlineData("Pegou o suspeito.", "Apanhou o suspeito.")]
+    [InlineData("Peguem esses criminosos.", "Apanhem esses criminosos.")]
+    [InlineData("Pegaremos aquela fugitiva.", "Apanharemos aquela fugitiva.")]
+    [InlineData("Não peguei nenhum suspeito.", "Não apanhei nenhum suspeito.")]
+    [InlineData("Vamos pegar este tipo de arma.", "Vamos pegar neste tipo de arma.")]
+    [InlineData("Pega a arma.", "Pega na arma.")]
+    [InlineData("Vou pegar uma bebida.", "Vou buscar uma bebida.")]
+    [InlineData("Vamos pegar\neste cara.", "Vamos apanhar\neste tipo.")]
+    public void CatchPeopleKeepsObjectAndVerbInflection(string source, string expected)
+    {
+        Assert.Equal(expected, Converter.Convert(source));
+        Assert.Equal(expected, Converter.Convert(expected));
+    }
+
+    [Theory]
+    [InlineData("A gente sempre escuta,", "You just hear about this stuff.", "Ouvimos sempre,")]
+    [InlineData("A gente sempre escuta sobre estas coisas.", null, "Ouvimos sempre sobre estas coisas.")]
+    [InlineData("Nós escutamos sempre sobre estas coisas.", null, "Nós ouvimos sempre sobre estas coisas.")]
+    [InlineData("Ela escutou sobre o acidente.", null, "Ela ouviu sobre o acidente.")]
+    [InlineData("Escutarei sobre isso.", null, "Ouvirei sobre isso.")]
+    [InlineData("A gente sempre escutava.", "We always heard about it.", "Ouvíamos sempre.")]
+    [InlineData("A gente sempre escuta música.", "We always listen to music.", "Escutamos sempre música.")]
+    [InlineData("Escute com atenção.", "Listen carefully.", "Escuta com atenção.")]
+    [InlineData("A gente nunca escuta.", "We never listen.", "Nunca escutamos.")]
+    [InlineData("A gente sempre se lembra.", null, "Sempre nos lembramos.")]
+    [InlineData("A gente sempre escuta,", null, "Escutamos sempre,")]
+    public void HearingAboutDiffersFromDeliberateListening(string source, string? english, string expected)
+    {
+        var hint = ReferenceHint.FromText(english);
+        Assert.Equal(expected, Converter.Convert(source, null, hint));
+        Assert.Equal(expected, Converter.Convert(expected, null, hint));
+    }
+
+    [Theory]
     [InlineData("e o síndico lhe disse que", "e o encarregado do edifício disse-lhe que")]
     [InlineData("Nossa força-tarefa\nvai responder cada ligação,", "A nossa equipa especial\nvai responder cada ligação,")]
     [InlineData("Me coloque na\nespera, que espero.", "Põe-me em\nespera, que espero.")]

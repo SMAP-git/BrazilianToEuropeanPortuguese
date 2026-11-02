@@ -571,7 +571,15 @@ public sealed class PortugueseConverter
 
         if (_options.Colloquial)
         {
+            if (_options.Vocabulary)
+            {
+                s = HearingVocabulary.Apply(s, reference is { HearAbout: true });
+            }
             s = WeRules.Apply(s);
+        }
+        else if (_options.Vocabulary)
+        {
+            s = HearingVocabulary.Apply(s, reference is { HearAbout: true });
         }
 
         if (_options.YouToTu)
@@ -803,17 +811,19 @@ public sealed class PortugueseConverter
             @"(?=\s+(?:(?:o|a|os|as|um|uma|uns|umas|muito|muita|muitos|muitas|vários|várias|alguns|algumas|poucos|poucas)\s+)?" +
             @"(?:coisas?|objetos?|peixes?|trutas?|salmão|salmões|frutas?|frutos?|flores?|folhas?|cogumelos?|moedas?|bolas?|lixo|encomendas?)" + NotWordAfter + ")", Ci);
 
+        private static readonly Regex CatchPerson = new(
+            NotWordBefore + @"(?<v>" + Forms + ")" + NotWordAfter +
+            @"(?=\s+(?:(?:o|a|os|as|um|uma|uns|umas|este|esta|estes|estas|esse|essa|esses|essas|aquele|aquela|aqueles|aquelas|nenhum|nenhuma|algum|alguma|alguns|algumas)\s+)?" +
+            @"(?:caras?|tipos?|gajos?|gajas?|suspeitos?|suspeitas?|criminosos?|criminosas?|bandidos?|bandidas?|ladrão|ladrões|ladra|ladras|assassinos?|assassinas?|fugitivos?|fugitivas?)" + NotWordAfter +
+            @"(?!\s+de" + NotWordAfter + "))", Ci);
+
         private static readonly Regex Caught = new(
             NotWordBefore + @"(?<aux>(?:fui|foi|foste|fomos|foram|ser|sermos|serem|é|são|sou|era|eram|seja|sejam|será|serão|seria|fosse|fossem|for|forem|foi|serás|ficou|fiquei)\s+)peg(?<e>o|a|os|as)" + NotWordAfter, Ci);
 
         public static string Apply(string s)
         {
-            s = CollectOrCatch.Replace(s, m =>
-            {
-                var verb = m.Groups["v"].Value;
-                var stemLength = verb.StartsWith("pegu", StringComparison.OrdinalIgnoreCase) ? 4 : 3;
-                return CaseHelper.MatchCase(verb[..stemLength], "apanh") + verb[stemLength..];
-            });
+            s = CatchPerson.Replace(s, ReplaceCatch);
+            s = CollectOrCatch.Replace(s, ReplaceCatch);
             s = CatchIllness.Replace(s, m => CaseHelper.MatchCase(m.Value, "apanh"));
             s = Caught.Replace(s, m => m.Groups["aux"].Value + (CaseHelper.IsAllUpper(m.Value) ? "APANHAD" : "apanhad") + m.Groups["e"].Value);
             s = WithEnclitic.Replace(s, m => CaseHelper.MatchCase(m.Value, "apanh"));
@@ -830,6 +840,38 @@ public sealed class PortugueseConverter
             });
             return s;
         }
+
+        private static string ReplaceCatch(Match m)
+        {
+            var verb = m.Groups["v"].Value;
+            var stemLength = verb.StartsWith("pegu", StringComparison.OrdinalIgnoreCase) ? 4 : 3;
+            return CaseHelper.MatchCase(verb[..stemLength], "apanh") + verb[stemLength..];
+        }
+    }
+
+    internal static class HearingVocabulary
+    {
+        private static readonly Dictionary<string, string> Forms = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["escutar"] = "ouvir", ["escuto"] = "ouço", ["escutas"] = "ouves", ["escuta"] = "ouve",
+            ["escutamos"] = "ouvimos", ["escutam"] = "ouvem", ["escutei"] = "ouvi", ["escutaste"] = "ouviste",
+            ["escutou"] = "ouviu", ["escutámos"] = "ouvimos", ["escutaram"] = "ouviram",
+            ["escutava"] = "ouvia", ["escutavas"] = "ouvias", ["escutávamos"] = "ouvíamos", ["escutavam"] = "ouviam",
+            ["escutando"] = "ouvindo", ["escutado"] = "ouvido",
+            ["escute"] = "ouça", ["escutes"] = "ouças", ["escutemos"] = "ouçamos", ["escutem"] = "ouçam",
+            ["escutarei"] = "ouvirei", ["escutarás"] = "ouvirás", ["escutará"] = "ouvirá", ["escutaremos"] = "ouviremos", ["escutarão"] = "ouvirão",
+            ["escutaria"] = "ouviria", ["escutarias"] = "ouvirias", ["escutaríamos"] = "ouviríamos", ["escutariam"] = "ouviriam",
+            ["escutasse"] = "ouvisse", ["escutasses"] = "ouvisses", ["escutássemos"] = "ouvíssemos", ["escutassem"] = "ouvissem",
+            ["escutares"] = "ouvires", ["escutarmos"] = "ouvirmos", ["escutarem"] = "ouvirem",
+        };
+        private static readonly Regex Verb = new(
+            NotWordBefore + "(?:" + Alternation(Forms.Keys) + ")" + NotWordAfter, Ci);
+        private static readonly Regex About = new(@"^\s+(?:(?:sempre|muitas\s+vezes|às\s+vezes|nunca)\s+)?sobre" + NotWordAfter, Ci);
+
+        internal static string Apply(string text, bool hearAbout) => Verb.Replace(text, m =>
+            hearAbout || About.IsMatch(text[(m.Index + m.Length)..])
+                ? CaseHelper.MatchCase(m.Value, Forms[m.Value])
+                : m.Value);
     }
 
     private string Mask(string text, List<string> masks, bool laterPass = false)
@@ -1236,7 +1278,9 @@ public sealed class PortugueseConverter
             string result;
             if (clitic.Length == 0)
             {
-                result = advPart + plural;
+                result = adv.Equals("sempre", StringComparison.OrdinalIgnoreCase)
+                    ? plural + " " + adv.ToLowerInvariant()
+                    : advPart + plural;
             }
             else
             {

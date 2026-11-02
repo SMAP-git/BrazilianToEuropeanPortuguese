@@ -66,6 +66,16 @@ public sealed class BatchModeTests : IDisposable
     }
 
     [Fact]
+    public void Batch_HearingStatementUsesEnglishMeaningAndPluralOrder()
+    {
+        var response = BatchMode.BuildBatchResponse(EpisodeRequest("A gente sempre escuta,", true,
+            "You just hear about this stuff."), WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Ouvimos sempre," }, Texts(response));
+        response = BatchMode.BuildBatchResponse(Request("Vamos pegar este cara."), WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Vamos apanhar este tipo." }, Texts(response));
+    }
+
+    [Fact]
     public void Batch_CountsLinesToReview()
     {
         var response = BatchMode.BuildBatchResponse(EpisodeRequest("Precisamos falar com seu marido. Ele está em casa?", true,

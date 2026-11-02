@@ -21,6 +21,17 @@ public sealed class ReferenceTests(ITestOutputHelper output)
     private static SrtBlock Cue(long start, long end, string text) => new() { StartMs = start, EndMs = end, Text = text };
 
     [Theory]
+    [InlineData("You just hear about this stuff.", true)]
+    [InlineData("We always heard about it.", true)]
+    [InlineData("She hears about these things.", true)]
+    [InlineData("Listen carefully.", false)]
+    [InlineData("We listen to music.", false)]
+    [InlineData("Listen, I heard about it.", false)]
+    [InlineData("Did you hear that sound?", false)]
+    public void HearAboutReferenceHint(string english, bool expected) =>
+        Assert.Equal(expected, ReferenceHint.FromText(english)!.HearAbout);
+
+    [Theory]
     [InlineData("Is that why you never dated any officers?", true, true)]
     [InlineData("Is that why you already arrived?", true, false)]
     [InlineData("Is that why he never dated any officers?", false, true)]

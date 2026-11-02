@@ -358,6 +358,14 @@ Rules found by comparing the output against real PT-PT subtitles:
   Verb agreement uses the existing irregular table and dictionary-validated regular inflections, not a closed
   list of verbs. In a *que* clause with an auxiliary, dative clitics move before the auxiliary:
   *que vou facilitar para você* → *que te vou facilitar*.
+- Catching a person uses *apanhar*, across supported *pegar* inflections and demonstratives:
+  *Vamos pegar este cara* → *Vamos apanhar este tipo*, *pegou o suspeito* → *apanhou o suspeito*.
+  Physical objects still use *pegar em* and fetching keeps *buscar*; *tipo de …* is not treated as a person.
+  With vocabulary enabled, *escutar sobre …* or an aligned English *hear about …* uses the matching
+  *ouvir* form. Deliberate *listen* is not inferred as hearing about events.
+  When converting *a gente sempre* without a clitic, *sempre* follows the plural verb:
+  *A gente sempre escuta* + *You just hear about this stuff* → *Ouvimos sempre*.
+  Negatives and clitic placement retain the existing rules (*nunca escutamos*, *sempre nos lembramos*).
 - With colloquial rules enabled, clause-initial *por isso/isto/aquilo que* becomes
   *por isso/isto/aquilo é que*. An aligned English subject *you* can also guide the verb after
   intervening adverbs: *Por isso que nunca trabalhou aqui?* → *Por isso é que nunca trabalhaste aqui?*.
