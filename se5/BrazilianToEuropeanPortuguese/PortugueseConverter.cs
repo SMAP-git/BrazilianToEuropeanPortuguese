@@ -2167,7 +2167,7 @@ public sealed class PortugueseConverter
         /// becomes the polite 3rd person (consigo, para si, "Você está bem?" → "Está bem?") instead of "tu".
         /// </summary>
         private static readonly Regex FormalAddress = new(
-            NotWordBefore + @"(?:senhor|senhora|senhores|senhoras|sr|sra|srta|dona|doutor|doutora|dr|dra|detetive|detective|agente|oficial|" +
+            NotWordBefore + @"(?:senhor|senhora|senhores|senhoras|sr|sra|srta|dona|doutor|doutora|dr|dra|detetive|detective|agente|(?<!o )(?<!a )(?<!um )(?<!uma )oficial|" +
             @"inspetor|inspetora|inspector|capitão|tenente|sargento|cabo|coronel|general|comandante|major|almirante|xerife|juiz|juíza|" +
             @"meritíssimo|meritíssima|padre|reverendo|madre|majestade|alteza|excelência|presidente|ministro|ministra|embaixador|" +
             @"embaixadora|diretor|diretora|professor|professora|patrão|patroa|senador|senadora|governador|governadora|prefeito|" +
@@ -2256,11 +2256,46 @@ public sealed class PortugueseConverter
                 s = NegativeImperative.Replace(s, ReplaceNegativeImperative);
                 s = BareNeed.Replace(s, m => m.Groups["pre"].Value + CaseHelper.MatchCase(m.Groups["v"].Value, PortugueseVerbs.ThirdToSecond[m.Groups["v"].Value.ToLowerInvariant()]));
             }
+            if (reference is { SecondPerson: true })
+            {
+                if (reference.StartsWithSecondPersonSubject)
+                {
+                    s = ReferenceSubjectVerb.Replace(s, ReplaceReferenceSecondPersonVerb);
+                }
+
+                if (reference.SecondPersonSubject && !reference.ThirdPerson)
+                {
+                    s = ReferenceSubordinateVerb.Replace(s, ReplaceReferenceSecondPersonVerb);
+                }
+            }
             s = FamilyCongratulations.Replace(s, m => m.Groups["pre"].Value +
                 (CaseHelper.IsAllUpper(m.Value) ? "ÀS" : "às") + m.Groups["sp"].Value +
                 CaseHelper.MatchCase(m.Groups["poss"].Value, "vossas"));
             s = YourToTeu(s, previousText, explicitAddressee, reference);
             return s;
+        }
+
+        private static readonly Regex ReferenceSubjectVerb = new(
+            @"(?<pre>^[\s""“«'\uE000-\uF8FF]*(?:(?:então|bem|ora|bom|pois|mas|e|agora)\s+)?)(?<v>\p{L}+)(?=\s)", Ci);
+
+        private static readonly Regex ReferenceSubordinateVerb = new(
+            @"(?<pre>(?<![\p{L}\p{M}])que\s+)(?<v>\p{L}+)(?![\p{L}\p{M}-])", Ci);
+
+        private static string ReplaceReferenceSecondPersonVerb(Match m)
+        {
+            var verb = m.Groups["v"].Value;
+            if (PortugueseVerbs.IsSecondPersonForm(verb) || Regex.IsMatch(verb, @"(?:aste|este|iste)$", Ci))
+            {
+                return m.Value;
+            }
+
+            if (!PortugueseVerbs.TryThirdToSecond(verb, out var second) &&
+                !PortugueseVerbs.TryGuessThirdToSecond(verb, out second))
+            {
+                return m.Value;
+            }
+
+            return m.Groups["pre"].Value + CaseHelper.MatchCase(verb, second);
         }
 
         // A question that starts with a bare verb is addressed to "você": "Acha que...?" → "Achas que...?", "Lembra?" → "Lembras-te?".
@@ -3379,6 +3414,7 @@ public sealed class PortugueseConverter
             s = ObjectPronoun.Replace(s, ReplaceObject);
             s = CausativeInfinitive.Replace(s, m => m.Groups["pre"].Value + m.Groups["inf"].Value);
             s = DativePara.Replace(s, ReplaceDativePara);
+            s = InfinitiveProclisis.Replace(s, ReplaceInfinitiveProclisis);
             return s;
         }
 
@@ -3538,7 +3574,7 @@ public sealed class PortugueseConverter
 
         // Verbs whose Brazilian "para + pronoun" is an indirect object in Portugal: "Liga para ela" → "Liga-lhe".
         internal const string DativeVerbForms =
-            "(?:(?:lig|ligu|telefon|pergunt|cont|expli(?:c|qu)|mostr|mand|envi|ensin|pag|pagu)(?:" + ArEndings + ")|" +
+            "(?:(?:lig|ligu|telefon|pergunt|cont|expli(?:c|qu)|mostr|mand|envi|ensin|pag|pagu|facilit)(?:" + ArEndings + ")|" +
             "(?:escrev|respond)(?:" + ErEndings + ")|" +
             "digo|dizes|diz|dizemos|dizem|diga|digas|digam|disse|disseste|dissemos|disseram|dizia|dizias|diziam|dizer|dizeres|dizerem|direi|dirá|dirás|diremos|dirão|diria|dirias|diriam|dissesse|dissessem|dizendo|" +
             "peço|pedes|pede|pedimos|pedem|peça|peças|peçam|pedi|pediste|pediu|pediram|pedia|pedias|pediam|pedir|pedires|pedirem|pedirei|pedirá|pedirás|pediremos|pedirão|pediria|pedirias|pediriam|pedisse|pedissem|pedindo|" +
@@ -3556,6 +3592,17 @@ public sealed class PortugueseConverter
             @"(?<![\p{L}\p{M}])(?:um|uma|o|a|os|as|uns|umas|essa|esse|esta|este|essas|estas|outra|outro|outras|minha|meu|tua|teu|sua|seu|nossa|nosso|alguma|algum|algumas|alguns|nenhuma|última|primeira|mais|cuja|cujo|duas|três|várias|muitas|poucas|" +
             @"tenho|tens|tem|temos|têm|tiver|tiveres|tiverem|tinha|tinhas|tinham|há|havia|houver)\s+$",
             RegexOptions.IgnoreCase);
+
+        private static readonly Regex InfinitiveProclisis = new(
+            @"(?<pre>(?<![\p{L}\p{M}])que\s+)" +
+            @"(?:(?<subject>eu|tu|ele|ela|nós|vocês|eles|elas)(?<subjectSpace>\s+))?" +
+            @"(?<aux>vou|vais|vai|vamos|vão|ia|ias|íamos|iam|irei|irás|irá|iremos|irão|estou|estás|está|estamos|estão|estava|estavas|estávamos|estavam|" +
+            @"posso|podes|pode|podemos|podem|podia|podias|podíamos|podiam|quero|queres|quer|queremos|querem|queria|querias|queríamos|queriam|" +
+            @"devo|deves|deve|devemos|devem|devia|devias|devíamos|deviam)(?<auxSpace>\s+)(?<verb>\p{L}+)-(?<cl>me|te|se|nos|vos|lhe|lhes)(?![\p{L}\p{M}-])", Ci);
+
+        private static string ReplaceInfinitiveProclisis(Match m) =>
+            m.Groups["pre"].Value + m.Groups["subject"].Value + m.Groups["subjectSpace"].Value +
+            m.Groups["cl"].Value + " " + m.Groups["aux"].Value + m.Groups["auxSpace"].Value + m.Groups["verb"].Value;
 
         private static string ReplaceDativePara(Match m)
         {
@@ -3713,16 +3760,27 @@ public sealed class PortugueseConverter
                 if (!marked)
                 {
                     if (YouToTuRules.IsFormal(text) || previousText != null && YouToTuRules.IsFormal(previousText) ||
-                        NotCommandPhrase.IsMatch(text) || FormalMarker.IsMatch(text) || PoliteRequest.IsMatch(text) || TitleMarker.IsMatch(s))
+                        FormalMarker.IsMatch(text) || PoliteRequest.IsMatch(text) || TitleMarker.IsMatch(s))
+                    {
+                        return text;
+                    }
+                }
+
+                var negative = NegativeCommand.Match(text);
+                if (negative.Success)
+                {
+                    if (YouToTuRules.IsFormal(text) || previousText != null && YouToTuRules.IsFormal(previousText) ||
+                        FormalMarker.IsMatch(text) || PoliteRequest.IsMatch(text) || TitleMarker.IsMatch(s))
                     {
                         return text;
                     }
 
-                    var negative = NegativeCommand.Match(text);
-                    if (negative.Success)
-                    {
-                        return ConvertNegative(text, negative);
-                    }
+                    return ConvertNegative(text, negative);
+                }
+
+                if (!marked && NotCommandPhrase.IsMatch(text))
+                {
+                    return text;
                 }
 
                 var only = OnlyCommand.Match(text);

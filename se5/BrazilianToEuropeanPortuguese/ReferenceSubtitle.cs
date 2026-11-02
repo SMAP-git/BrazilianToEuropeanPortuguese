@@ -37,6 +37,12 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
     /// <summary>The English says "kid/child/little": "miúdo" is right.</summary>
     public bool Kid { get; init; }
 
+    /// <summary>The English cue has "you" as a grammatical subject, rather than only as an object.</summary>
+    public bool SecondPersonSubject { get; init; }
+
+    /// <summary>The aligned English cue starts with "you" as its subject.</summary>
+    public bool StartsWithSecondPersonSubject { get; init; }
+
     /// <summary>
     /// The English says "this/these" and never "that/those": Brazilian "isso/esse" (used for both) is pt-PT "isto/este".
     /// </summary>
@@ -66,6 +72,17 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
         "may", "gonna", "going", "i'll", "you'll", "we'll", "they'll", "he'll", "she'll", "i'd", "you'd", "we'd", "they'd", "let's",
     };
     private static readonly HashSet<string> NotPast = new(StringComparer.Ordinal) { "red", "bed", "shed", "wed", "sled", "hundred", "naked", "sacred", "wicked" };
+    private static readonly string SubjectVerbs = string.Join("|", PastWords.Concat(PresentWords).Concat(Modals)
+        .Concat(new[] { "know", "think", "want", "need", "go", "come", "get", "say", "tell", "make", "take", "give", "find", "call", "help", "work", "live", "like", "love", "hate", "feel", "look", "hear", "remember", "forget", "understand", "believe", "mean", "let", "keep", "leave", "put", "run", "pay", "speak", "talk", "ask", "try", "wait", "stay", "move", "use", "open", "close", "drive", "eat", "drink", "follow", "plan", "start", "stop", "change", "touch", "hold", "kill", "bring", "buy", "meet", "spend", "send", "win", "stand", "sit", "wear", "read", "play", "walk", "happen" })
+        .Distinct(StringComparer.Ordinal)
+        .OrderByDescending(word => word.Length)
+        .Select(Regex.Escape));
+    private static readonly Regex InitialYouSubject = new(
+        @"^\s*(?:(?:well|so|then|but|and|now|hey|look|listen|okay|ok|all\s+right)\b[,!?;:]?\s*)?(?:you\b|you['’](?:re|ll|ve|d)\b|y['’]all\b)",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    private static readonly Regex YouSubject = new(
+        @"(?<![\p{L}\p{M}])(?:you|y['’]all)\s+(?:" + SubjectVerbs + @"|\p{L}+(?:ed|ing))\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     /// <summary>The reference says "his/her/their" and not "your": keep "o seu/a sua".</summary>
     public bool KeepsThirdPersonPossessive => ThirdPossessive && !SecondPossessive;
@@ -82,7 +99,8 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
 
         bool second = false, secondOwn = false, third = false, thirdOwn = false, boy = false, girl = false, kid = false, near = false, far = false;
         bool past = false, present = false, modal = false;
-        foreach (Match m in Word.Matches(ReferenceAligner.Clean(english)))
+        var clean = ReferenceAligner.Clean(english);
+        foreach (Match m in Word.Matches(clean))
         {
             var word = m.Value.ToLowerInvariant().Replace('’', '\'');
             var stem = word.Split('\'')[0];
@@ -104,7 +122,16 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
             else if (Third.Contains(stem)) third = true;
         }
 
-        return new ReferenceHint(second, secondOwn, third, thirdOwn) { Boy = boy && !kid, Girl = girl && !kid, Kid = kid, This = near && !far,
+        var startsWithSecondPersonSubject = InitialYouSubject.IsMatch(clean);
+        var secondPersonSubject = startsWithSecondPersonSubject || YouSubject.IsMatch(clean);
+        return new ReferenceHint(second, secondOwn, third, thirdOwn)
+        {
+            Boy = boy && !kid,
+            Girl = girl && !kid,
+            Kid = kid,
+            This = near && !far,
+            SecondPersonSubject = secondPersonSubject,
+            StartsWithSecondPersonSubject = startsWithSecondPersonSubject,
             Past = past && !modal, Present = present && !past && !modal };
     }
 }

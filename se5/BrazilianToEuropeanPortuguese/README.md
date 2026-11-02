@@ -340,6 +340,15 @@ Rules found by comparing the output against real PT-PT subtitles:
   *Liga você para ela.* → *Liga-lhe.*, but the question keeps the stressed subject: *Ligas tu para ela?*.
   *olhar/levar/falar/dar para…*, nouns (*uma pergunta para ela*), *isso conta para ele* and *liguei para ele
   saber* are kept. *Só/Apenas* + command also takes the *tu* form: *Só me ligue* → *Só me liga*.
+- Negative commands remain in the *tu* subjunctive even when a *teu/tua* possessive appears later:
+  *Não pense que porque seu velho é o chefe* → *Não penses que porque o teu velho é o chefe*.
+  An aligned English reference that identifies *you* as the subject can resolve an omitted Portuguese subject;
+  likewise, an unambiguous subjectless clause after *que* can use the reference's *you*: *Sabe que fui…* →
+  *Sabes que fui…*, *Então soube que chegou…* → *Então soube que chegaste…*. A third-person English reference
+  keeps the third-person form, and ambiguous subjectless clauses without a reference are left unchanged.
+  Verb agreement uses the existing irregular table and dictionary-validated regular inflections, not a closed
+  list of verbs. In a *que* clause with an auxiliary, dative clitics move before the auxiliary:
+  *que vou facilitar para você* → *que te vou facilitar*.
 - When a rule leaves a pronoun, preposition or article at the end of a line, the line break moves so it stays with
   its word: *Disse que o João ligou / pra ele do hotel* → *Disse que o João / lhe ligou do hotel*, *Então disse pra
   ela / me encontrar* → *Então disse-lhe / para me encontrar*. The word normally moves down; words come up from the

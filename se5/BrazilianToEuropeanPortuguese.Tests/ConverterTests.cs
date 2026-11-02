@@ -738,6 +738,28 @@ public sealed class ConverterTests
     public void YouToTu(string br, string pt) => AssertConverts(br, pt);
 
     [Theory]
+    [InlineData("Então soube que chegou cedo.", "Then I found out you arrived early.", "Então soube que chegaste cedo.")]
+    [InlineData("Sabe que fui um oficial.", "You know I was an officer.", "Sabes que fui um oficial.")]
+    [InlineData("Pensa que trabalhou muito.", "You think you worked hard.", "Pensas que trabalhaste muito.")]
+    [InlineData("Ele sabe que foi para casa.", "He knows he went home.", "Ele sabe que foi para casa.")]
+    [InlineData("Então soube que chegou cedo.", "Then I found out he arrived early.", "Então soube que chegou cedo.")]
+    [InlineData("O que aconteceu?", "What happened to you?", "O que aconteceu?")]
+    public void ReferenceGuidesDroppedSecondPersonSubjects(string br, string english, string pt) =>
+        Assert.Equal(pt, Converter.Convert(br, null, ReferenceHint.FromText(english)));
+
+    [Fact]
+    public void DroppedSecondPersonWithoutReferenceIsNotGuessed()
+    {
+        Assert.Equal("Sabe que fui um oficial.", Converter.Convert("Sabe que fui um oficial."));
+    }
+
+    [Theory]
+    [InlineData("Não pense que porque seu velho é o chefe.", "Não penses que porque o teu velho é o chefe.")]
+    [InlineData("que vou facilitar pra você.", "que te vou facilitar.")]
+    [InlineData("que eu vou facilitar para você.", "que eu te vou facilitar.")]
+    public void AddressedCommandsAndDativeInfinitives(string br, string pt) => AssertConverts(br, pt);
+
+    [Theory]
     [InlineData("<i>Estou fazendo isso.</i>", "<i>Estou a fazer isso.</i>")]
     [InlineData("{\\an8}O trem chegou.", "{\\an8}O comboio chegou.")]
     [InlineData("<font color=\"#ff0000\">tela</font>", "<font color=\"#ff0000\">ecrã</font>")]
