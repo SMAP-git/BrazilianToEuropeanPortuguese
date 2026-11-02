@@ -58,6 +58,14 @@ public sealed class BatchModeTests : IDisposable
     }
 
     [Fact]
+    public void Batch_CausalQuestionUsesAlignedSubjectAndNegativeObject()
+    {
+        var response = BatchMode.BuildBatchResponse(EpisodeRequest("Por isso que nunca visitou nenhuma ilha?", true,
+            "Is that why you never visited any islands?"), WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Por isso é que nunca visitaste uma ilha?" }, Texts(response));
+    }
+
+    [Fact]
     public void Batch_CountsLinesToReview()
     {
         var response = BatchMode.BuildBatchResponse(EpisodeRequest("Precisamos falar com seu marido. Ele está em casa?", true,

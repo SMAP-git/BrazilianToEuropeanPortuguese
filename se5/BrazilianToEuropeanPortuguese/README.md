@@ -358,6 +358,15 @@ Rules found by comparing the output against real PT-PT subtitles:
   Verb agreement uses the existing irregular table and dictionary-validated regular inflections, not a closed
   list of verbs. In a *que* clause with an auxiliary, dative clitics move before the auxiliary:
   *que vou facilitar para você* → *que te vou facilitar*.
+- With colloquial rules enabled, clause-initial *por isso/isto/aquilo que* becomes
+  *por isso/isto/aquilo é que*. An aligned English subject *you* can also guide the verb after
+  intervening adverbs: *Por isso que nunca trabalhou aqui?* → *Por isso é que nunca trabalhaste aqui?*.
+  Existing *é/foi por isso que* and *por isso é que* constructions are supported without duplicating
+  *é que*. Explicit Portuguese subjects, third-person English, and formal dialogue keep their agreement;
+  without a reference, an ambiguous omitted subject is not guessed.
+  When the English says *never … any …*, *nunca* + verb + *nenhum/nenhuma* can use the simpler
+  *um/uma*, retaining the negation: *nunca visitou nenhuma ilha* → *nunca visitou uma ilha*.
+  This is a stylistic choice; *nenhum/nenhuma* is also grammatical in PT-PT.
 - A missing final *r* after an unambiguous *ir* auxiliary is repaired before conjugation and pronoun rules:
   *Não vou fala mais com vocês* → *Não vou falar mais com vocês*, *vamos come* → *vamos comer*,
   *vão parti* → *vão partir*. The restored infinitive must be in the verb list or validated by the

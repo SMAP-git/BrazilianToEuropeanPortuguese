@@ -555,6 +555,16 @@ public sealed class PortugueseConverter
         if (_options.Colloquial)
         {
             s = ColloquialRules.Apply(s);
+            if (reference is { NeverAnyObject: true })
+            {
+                s = NeverIndefiniteObject.Replace(s, m =>
+                    PortugueseVerbs.IsKnownVerbForm(m.Groups["v"].Value) ||
+                    PortugueseVerbs.IsSecondPersonForm(m.Groups["v"].Value) ||
+                    PortugueseVerbs.TryGuessThirdToSecond(m.Groups["v"].Value, out _)
+                        ? m.Groups["pre"].Value + m.Groups["v"].Value + m.Groups["sp"].Value +
+                          CaseHelper.MatchCase(m.Groups["det"].Value, m.Groups["det"].Value.EndsWith("a", StringComparison.OrdinalIgnoreCase) ? "uma" : "um")
+                        : m.Value);
+            }
         }
 
         s = MissingInfinitiveEnding.Apply(s);
@@ -678,6 +688,10 @@ public sealed class PortugueseConverter
         @"|(?<lead>(?:^|(?<=[,;:.!?¿¡\-–—]\s*)|(?<=" + NotWordBefore + @"(?:e|mas|só)\s+))se))\s+" +
         NotWordBefore + @"(?<stem>\p{L}+?)(?<v>[áêô]|i)-(?<cl>l[oa]s?)" + NotWordAfter,
         Ci | RegexOptions.Multiline);
+
+    private static readonly Regex NeverIndefiniteObject = new(
+        NotWordBefore + @"(?<pre>nunca\s+(?:(?:me|te|se|nos|lhe|lhes)\s+)?)(?<v>\p{L}+)(?<sp>\s+)(?<det>nenhum|nenhuma)(?=\s+\p{L})",
+        Ci);
 
     private static readonly Dictionary<string, string> IrregularFutureSubjunctive = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -1922,6 +1936,9 @@ public sealed class PortugueseConverter
             // precisar + infinitivo → precisar de + infinitivo
             (new Regex(NotWordBefore + @"(?<p>preciso|precisas|precisa|precisamos|precisam|precisava|precisavas|precisávamos|precisavam|precisei|precisaste|precisou|precisámos|precisaram|precisar|precise|precises|precisem|precisaria|precisarias|precisariam|precisará|precisarás|precisarão|precisasse|precisares|precisarem)\s+(?=(?:(?:me|te|se|nos|lhe|o|a)\s+)?\p{L}*(?:ar|er|ir|ôr)(?!\p{L}))", Ci),
                 m => m.Groups["p"].Value + (CaseHelper.IsAllUpper(m.Groups["p"].Value) ? " DE " : " de ")),
+            (new Regex(SentenceStart + @"(?<w>por\s+(?:isso|isto|aquilo))(?<sp>\s+)(?<que>que)" + NotWordAfter, Ci),
+                m => m.Groups["pre"].Value + m.Groups["w"].Value + m.Groups["sp"].Value +
+                     (CaseHelper.IsAllUpper(m.Groups["w"].Value) ? "É " : "é ") + m.Groups["que"].Value),
             // "Por quê?" → "Porquê?", "Por que não vens?" → "Porque não vens?" ("o motivo por que" keeps the relative).
             (new Regex(@"(?<sp>[ \t]*)" + NotWordBefore + @"(?<w>por\s+quê)(?=\s*[?!.…,]|\s*$)", Ci), m => JoinWords(m, "porquê")),
             (new Regex(@"(?<sp>[ \t]*)(?<!(?:motivo|motivos|razão|razões|causa|causas|luta|lutas|lutar|lutou|luto|passou|passei|passar|passaram|passámos)\s+)" + NotWordBefore + @"(?<w>por\s+que)" + NotWordAfter, Ci),
@@ -2295,6 +2312,7 @@ public sealed class PortugueseConverter
                 if (reference.SecondPersonSubject && !reference.ThirdPerson)
                 {
                     s = ReferenceSubordinateVerb.Replace(s, ReplaceReferenceSecondPersonVerb);
+                    s = ReferenceCausalVerb.Replace(s, ReplaceReferenceSecondPersonVerb);
                 }
             }
             s = FamilyCongratulations.Replace(s, m => m.Groups["pre"].Value +
@@ -2309,6 +2327,12 @@ public sealed class PortugueseConverter
 
         private static readonly Regex ReferenceSubordinateVerb = new(
             @"(?<pre>(?<![\p{L}\p{M}])que\s+)(?<v>\p{L}+)(?![\p{L}\p{M}-])", Ci);
+
+        private static readonly Regex ReferenceCausalVerb = new(
+            @"(?<pre>^[\s""“«'\uE000-\uF8FF]*(?:(?<![\p{L}\p{M}])[-–—]\s*)?" +
+            @"(?:(?:é|foi|era|será)\s+)?por\s+(?:isso|isto|aquilo)\s+(?:é\s+)?que\s+" +
+            @"(?:(?:não|nunca|já|ainda|sempre|também|só|realmente|jamais|me|te|se|nos|lhe|lhes)\s+){0,3})" +
+            @"(?<v>\p{L}+)" + NotWordAfter, Ci);
 
         private static string ReplaceReferenceSecondPersonVerb(Match m)
         {

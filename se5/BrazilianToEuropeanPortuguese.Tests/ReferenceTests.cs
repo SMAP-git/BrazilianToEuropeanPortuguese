@@ -21,6 +21,20 @@ public sealed class ReferenceTests(ITestOutputHelper output)
     private static SrtBlock Cue(long start, long end, string text) => new() { StartMs = start, EndMs = end, Text = text };
 
     [Theory]
+    [InlineData("Is that why you never dated any officers?", true, true)]
+    [InlineData("Is that why you already arrived?", true, false)]
+    [InlineData("Is that why he never dated any officers?", false, true)]
+    [InlineData("What happened to you?", false, false)]
+    [InlineData("I never stayed any longer.", false, false)]
+    [InlineData("I never wanted any more.", false, false)]
+    public void ReferenceSubjectAdverbsAndNeverAnyHints(string english, bool subject, bool any)
+    {
+        var hint = ReferenceHint.FromText(english)!;
+        Assert.Equal(subject, hint.SecondPersonSubject);
+        Assert.Equal(any, hint.NeverAnyObject);
+    }
+
+    [Theory]
     [InlineData("Bem, Sr. vice-cônsul,")]
     [InlineData("Bom dia, professora.")]
     [InlineData("Senhor Silva, posso entrar?")]

@@ -54,6 +54,9 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
     /// <summary>The aligned English cue starts with "you" as its subject.</summary>
     public bool StartsWithSecondPersonSubject { get; init; }
 
+    /// <summary>The reference uses never + verb + any as an object, not "any more/longer".</summary>
+    public bool NeverAnyObject { get; init; }
+
     /// <summary>
     /// The English says "this/these" and never "that/those": Brazilian "isso/esse" (used for both) is pt-PT "isto/este".
     /// </summary>
@@ -92,8 +95,10 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
         @"^\s*(?:(?:well|so|then|but|and|now|hey|look|listen|okay|ok|all\s+right)\b[,!?;:]?\s*)?(?:you\b|you['’](?:re|ll|ve|d)\b|y['’]all\b)",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     private static readonly Regex YouSubject = new(
-        @"(?<![\p{L}\p{M}])(?:you|y['’]all)\s+(?:" + SubjectVerbs + @"|\p{L}+(?:ed|ing))\b",
+        @"(?<![\p{L}\p{M}])(?:you|y['’]all)\s+(?:(?:never|ever|always|already|just|really|still|only|also|actually)\s+){0,3}(?:" + SubjectVerbs + @"|\p{L}+(?:ed|ing))\b",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    private static readonly Regex NeverAny = new(
+        @"\bnever\s+(?:\p{L}+\s+){1,3}any\s+(?!more\b|longer\b)\p{L}+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     /// <summary>The reference says "his/her/their" and not "your": keep "o seu/a sua".</summary>
     public bool KeepsThirdPersonPossessive => ThirdPossessive && !SecondPossessive;
@@ -143,6 +148,7 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
             This = near && !far,
             SecondPersonSubject = secondPersonSubject,
             StartsWithSecondPersonSubject = startsWithSecondPersonSubject,
+            NeverAnyObject = NeverAny.IsMatch(clean),
             Past = past && !modal, Present = present && !past && !modal };
     }
 }

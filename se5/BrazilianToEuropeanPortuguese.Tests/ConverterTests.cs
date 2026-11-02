@@ -754,6 +754,59 @@ public sealed class ConverterTests
     }
 
     [Theory]
+    [InlineData("Por isso que nunca namorou nenhum tira?", "Is that why you never dated any cops?", "Por isso é que nunca namoraste um polícia?")]
+    [InlineData("Por isso que nunca visitou nenhuma ilha?", "Is that why you never visited any islands?", "Por isso é que nunca visitaste uma ilha?")]
+    [InlineData("Por isso que já chegou?", "Is that why you already arrived?", "Por isso é que já chegaste?")]
+    [InlineData("Por isso que não quer sair?", "Is that why you don't want to leave?", "Por isso é que não queres sair?")]
+    [InlineData("É por isso que nunca trabalhou aqui?", "Is that why you never worked here?", "É por isso que nunca trabalhaste aqui?")]
+    [InlineData("Foi por isso que nunca veio?", "Was that why you never came?", "Foi por isso que nunca vieste?")]
+    [InlineData("Por isso que nunca\nnamorou nenhum tira?", "Is that why you never dated any cops?", "Por isso é que nunca\nnamoraste um polícia?")]
+    [InlineData("POR ISSO QUE NUNCA FALOU?", "Is that why you never spoke?", "POR ISSO É QUE NUNCA FALASTE?")]
+    [InlineData("<i>Por isso que nunca falou?</i>", "Is that why you never spoke?", "<i>Por isso é que nunca falaste?</i>")]
+    [InlineData("Por isto que não veio?", "Is this why you didn't come?", "Por isto é que não vieste?")]
+    public void CausalClausesUseReferenceSubjectAcrossVerbs(string source, string english, string expected)
+    {
+        var hint = ReferenceHint.FromText(english);
+        Assert.True(hint!.SecondPersonSubject);
+        Assert.Equal(expected, Converter.Convert(source, null, hint));
+        Assert.Equal(expected, Converter.Convert(expected, null, hint));
+    }
+
+    [Theory]
+    [InlineData("Por isso que nunca namorou?", "Is that why he never dated?", "Por isso é que nunca namorou?")]
+    [InlineData("Por isso que ele nunca namorou?", "Is that why he never dated?", "Por isso é que ele nunca namorou?")]
+    [InlineData("Por isso que eu nunca namorei?", "Is that why I never dated?", "Por isso é que eu nunca namorei?")]
+    [InlineData("Por isso que a Ana nunca namorou?", "Is that why you think Ana never dated?", "Por isso é que a Ana nunca namorou?")]
+    [InlineData("Por isso que nunca falou de você?", "Is that why he never spoke about you?", "Por isso é que nunca falou de ti?")]
+    [InlineData("Por isso que nunca namorou?", null, "Por isso é que nunca namorou?")]
+    [InlineData("Por isso vim.", "That's why I came.", "Por isso vim.")]
+    [InlineData("Eu lutei por isso que mencionou.", null, "Eu lutei por isso que mencionou.")]
+    [InlineData("Por isso é que nunca namoraste?", "Is that why you never dated?", "Por isso é que nunca namoraste?")]
+    public void CausalClausesDoNotGuessSubjectsOrDuplicateFocus(string source, string? english, string expected) =>
+        Assert.Equal(expected, Converter.Convert(source, null, ReferenceHint.FromText(english)));
+
+    [Fact]
+    public void CausalClausePreservesFormalReferenceContext()
+    {
+        var hint = ReferenceHint.FromText("Is that why you never dated any officers?")! with { FormalAddress = true };
+        Assert.Equal("Por isso é que nunca namorou um polícia?",
+            Converter.Convert("Por isso que nunca namorou nenhum polícia?", null, hint));
+        var off = new PortugueseConverter(ConversionOptions.Default with { Colloquial = false });
+        Assert.Equal("Por isso que nunca namoraste nenhum polícia?",
+            off.Convert("Por isso que nunca namorou nenhum polícia?", null, ReferenceHint.FromText("Is that why you never dated any officers?")));
+    }
+
+    [Theory]
+    [InlineData("Nunca vi nenhum castelo.", "I never saw any castles.", "Nunca vi um castelo.")]
+    [InlineData("Nunca visitou nenhuma ilha.", "She never visited any islands.", "Nunca visitou uma ilha.")]
+    [InlineData("Nunca vi nenhum castelo.", "I never saw a castle.", "Nunca vi nenhum castelo.")]
+    [InlineData("Não vi nenhum castelo.", "I didn't see any castles.", "Não vi nenhum castelo.")]
+    [InlineData("Nunca nenhum polícia entrou.", "No cop ever entered.", "Nunca nenhum polícia entrou.")]
+    [InlineData("Nunca foi nenhum problema.", "It was never any trouble.", "Nunca foi nenhum problema.")]
+    public void NeverAnyObjectUsesReferenceAndKeepsNegation(string source, string english, string expected) =>
+        Assert.Equal(expected, Converter.Convert(source, null, ReferenceHint.FromText(english)));
+
+    [Theory]
     [InlineData("Não pense que porque seu velho é o chefe.", "Não penses que porque o teu velho é o chefe.")]
     [InlineData("que vou facilitar pra você.", "que te vou facilitar.")]
     [InlineData("que eu vou facilitar para você.", "que eu te vou facilitar.")]
