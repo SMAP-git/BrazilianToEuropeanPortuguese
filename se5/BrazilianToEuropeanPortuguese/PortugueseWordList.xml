@@ -1024,4 +1024,83 @@
   <Word br="esparadrapos" pt="adesivos" />
   <Word br="bandeide" pt="penso rápido" />
   <Word br="bandeides" pt="pensos rápidos" />
+  <!-- Words still left by the rules, found by comparing the output with real PT-PT subtitles. -->
+  <Word br="merecimento" pt="mérito" />
+  <Word br="merecimentos" pt="méritos" />
+  <Word br="sem-teto" pt="sem-abrigo" />
+  <Word br="premiê" pt="primeiro-ministro" />
+  <Word br="trilha sonora" pt="banda sonora" />
+  <Word br="trilhas sonoras" pt="bandas sonoras" />
+  <Word br="fazer trilha" pt="fazer caminhadas" />
+  <Word br="trilha" pt="trilho" g="m" />
+  <Word br="trilhas" pt="trilhos" g="m" />
+  <Word br="milk-shake" pt="batido" />
+  <Word br="milk-shakes" pt="batidos" />
+  <Word br="show" pt="espetáculo" det="m" />
+  <Word br="shows" pt="espetáculos" det="m" />
+  <Word br="hilário" pt="hilariante" />
+  <Word br="hilária" pt="hilariante" />
+  <Word br="hilários" pt="hilariantes" />
+  <Word br="hilárias" pt="hilariantes" />
+  <Word br="jogar uma pelada" pt="jogar uma futebolada" />
+  <Word br="jogar pelada" pt="jogar à bola" />
+  <Word br="pelado" pt="nu" />
+  <Word br="pelada" pt="nua" />
+  <Word br="pelados" pt="nus" />
+  <Word br="peladas" pt="nuas" />
+  <Word br="boliche" pt="bowling" />
+  <Word br="drinque" pt="bebida" g="f" />
+  <Word br="drinques" pt="bebidas" g="f" />
+  <Word br="torta de" pt="tarte de" />
+  <Word br="tortas de" pt="tartes de" />
+  <Word br="torta" pt="tarte" det="f" />
+  <Word br="tortas" pt="tartes" det="f" />
+  <Word br="moleza" pt="canja" />
+  <Word br="coquetel" pt="cocktail" />
+  <Word br="coquetéis" pt="cocktails" />
+  <Word br="covarde" pt="cobarde" />
+  <Word br="covardes" pt="cobardes" />
+  <Word br="covardia" pt="cobardia" />
+  <Word br="covardias" pt="cobardias" />
+  <Word br="covardemente" pt="cobardemente" />
+  <Word br="vestiário" pt="balneário" />
+  <Word br="vestiários" pt="balneários" />
+  <Word br="lavanderia" pt="lavandaria" />
+  <Word br="lavanderias" pt="lavandarias" />
+  <Word br="galpão" pt="armazém" />
+  <Word br="galpões" pt="armazéns" />
+  <Word br="estoque" pt="stock" />
+  <Word br="estoques" pt="stocks" />
+  <Word br="duto" pt="conduta" g="f" />
+  <Word br="dutos" pt="condutas" g="f" />
+  <Word br="coceira" pt="comichão" />
+  <Word br="coceiras" pt="comichões" />
+  <Word br="cafeteria" pt="cafetaria" />
+  <Word br="cafeterias" pt="cafetarias" />
+  <Word br="barbante" pt="cordel" />
+  <Word br="barbantes" pt="cordéis" />
+  <Word br="linguajar" pt="linguagem" g="f" />
+  <Word br="loteria" pt="lotaria" />
+  <Word br="loterias" pt="lotarias" />
+  <Word br="propina" pt="suborno" g="m" />
+  <Word br="propinas" pt="subornos" g="m" />
+  <Word br="pichação" pt="grafíti" g="m" />
+  <Word br="pichações" pt="grafítis" g="m" />
+  <Word br="travesseiro" pt="almofada" g="f" />
+  <Word br="travesseiros" pt="almofadas" g="f" />
+  <Word br="abajur" pt="candeeiro" />
+  <Word br="abajures" pt="candeeiros" />
+  <Word br="edredom" pt="edredão" />
+  <Word br="edredons" pt="edredões" />
+  <Word br="liquidificador" pt="liquidificadora" g="f" />
+  <Word br="liquidificadores" pt="liquidificadoras" g="f" />
+  <Word br="xingamento" pt="insulto" />
+  <Word br="xingamentos" pt="insultos" />
+  <Word br="bronca" pt="raspanete" det="f" g="m" />
+  <Word br="broncas" pt="raspanetes" det="f" g="m" />
+  <Word br="dar a descarga" pt="puxar o autoclismo" />
+  <Word br="dê descarga" pt="puxa o autoclismo" />
+  <Word br="que time" pt="que equipa" />
+  <Verb br="compartilhar" pt="partilhar" />
+  <Verb br="malhar" pt="treinar" skip="malhado malhada malhados malhadas" />
 </Words>

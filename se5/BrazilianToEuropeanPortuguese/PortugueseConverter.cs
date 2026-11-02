@@ -149,6 +149,25 @@ public sealed class PortugueseConverter
             (char.IsUpper(clitic[0]) ? consonant.ToUpperInvariant() : consonant) + clitic;
     }
 
+    // A preposition or article typed twice, often across the line break: "o merecimento de\nde serem" → "o mérito\nde serem".
+    // "a" and "o" are left out ("de A a Z"), and so is "para" ("ele para para pensar").
+    internal static class DoubledWords
+    {
+        private const string Words = "de|da|do|das|dos|em|no|na|nos|nas|com|por|pelo|pela|pelos|pelas|os|as|um|uma|que";
+
+        private static readonly Regex SameLine = new(
+            @"(?<![\p{L}\p{M}-])(?<w>" + Words + @")[ \t]+\k<w>(?![\p{L}\p{M}-])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        private static readonly Regex AcrossLines = new(
+            @"(?<=[\p{L}\p{M}])[ \t]+(?<w>" + Words + @")[ \t]*(?<nl>\r?\n)[ \t]*(?<w2>\k<w>)(?![\p{L}\p{M}-])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        public static string Apply(string s)
+        {
+            s = AcrossLines.Replace(s, m => m.Groups["nl"].Value + m.Groups["w2"].Value);
+            return SameLine.Replace(s, m => m.Groups["w"].Value);
+        }
+    }
+
     // "Eu nunca sair da linha" is a bad translation: a subject needs a conjugated verb. The English reference gives the tense
     // ("I never stepped" → "Eu nunca saí", "I never step" → "Eu nunca saio"); without it the line is only flagged for review.
     internal static class BareInfinitive
@@ -456,6 +475,7 @@ public sealed class PortugueseConverter
             s = PortugueseOrthography.Apply(s, _options.PostAgreement);
         }
 
+        s = DoubledWords.Apply(s);
         if (reference is { Past: true } or { Present: true })
         {
             s = BareInfinitive.Apply(s, reference.Past);
@@ -730,7 +750,7 @@ public sealed class PortugueseConverter
     private const string AgreeingAdjectivesPattern =
         "(?:(?:tod|inteir|nov|velh|pequen|limp|suj|própri|cert|errad|vazi|chei|fechad|abert|lotad|quebrad|antig|bonit|lind|car|barat|escur|molhad|ocupad|" +
         "gast|pret|branc|vermelh|amarel|rox|fei|pront|curt|comprid|larg|apertad|gross|fin|perfeit|estranh|esquisit|maluc|louc|lent|rápid|baix|alt|" +
-        "gord|magr|hediond|terrível|frit|cozid|assad|coletiv|horrível|ótim|óptim|péssim|únic|rot|furad|manchad|amassad|gelad|quent|fri)(?:o|a|os|as)?|bom|boa|bons|boas|mau|má|maus|más|" +
+        "gord|magr|hediond|terrível|frit|cozid|assad|coletiv|horrível|ótim|óptim|péssim|únic|rot|furad|manchad|amassad|gelad|quent|fri|noturn|diurn|antialérgic)(?:o|a|os|as)?|bom|boa|bons|boas|mau|má|maus|más|" +
         // Participles agree too (rasgada → rasgado), except common nouns and fixed words that end the same way.
         @"(?!(?:nad|cad|obrigad|cuidad|chegad|comid|bebid|partid|entrad|estrad|namorad|advogad|soldad|estad|passad|mercad|piad|parad|salad|" +
         @"medid|ferid|corrid|jornad|morad|camad|fachad|pomad|pecad|almofad|calçad|escad|facad|porrad|pancad|rodad|temporad|madrugad|" +
@@ -1809,8 +1829,11 @@ public sealed class PortugueseConverter
             // Interjections and slang: "Opa!" → "Epá!", "Ô, Noah!" → "Ó, Noah!", "Cansei de esperar" → "Fartei-me de esperar".
             (new Regex(SentenceStart + @"(?<w>opa)(?=\s*[!,.…]|\s*$)", Ci), m => m.Groups["pre"].Value + CaseHelper.MatchCase(m.Groups["w"].Value, "epá")),
             (new Regex(SentenceStart + @"(?<w>ô)(?=\s*[,!]|\s+(?-i:\p{Lu}))", Ci), m => m.Groups["pre"].Value + CaseHelper.MatchCase(m.Groups["w"].Value, "ó")),
-            (new Regex(@"(?<!(?:me|não|nunca|já|te)\s+)" + NotWordBefore + @"(?<w>cansei)(?=\s+de" + NotWordAfter + @"|\s*[.!…]|\s*$)", Ci),
+            (new Regex(@"(?<!(?:me|não|nunca|já|te)\s+)" + NotWordBefore + @"(?<w>cansei)(?=\s+d(?:e|as?|os?)" + NotWordAfter + @"|\s*[.!…]|\s*$)", Ci),
                 m => CaseHelper.MatchCase(m.Groups["w"].Value, "fartei-me")),
+            // "Lógico, mas…" / "É cruel, lógico." → "Claro, mas…" / "É cruel, claro." ("raciocínio lógico" is kept).
+            (new Regex(@"(?<pre>(?:^|[.!?…:;,]\s*|\n|(?<![\p{L}\p{M}])[-–—]\s*)[""“«']?(?:<i>)?)(?<w>lógico)(?=\s*[,.!?…]|\s*</i>|\s*$)", Ci),
+                m => m.Groups["pre"].Value + CaseHelper.MatchCase(m.Groups["w"].Value, "claro")),
             (new Regex(NotWordBefore + @"(?<p>é|foi|era|muito|tão|mais|super)\s+da\s+hora" + NotWordAfter, Ci), m => m.Groups["p"].Value + (CaseHelper.IsAllUpper(m.Value) ? " FIXE" : " fixe")),
             (new Regex(@"(?<pre>(?:^|[.!?…:;,]\s+|\n|(?<![\p{L}\p{M}])[-–—]\s*|[\uE000-\uF8FF]\s*)[""“«']?)(?<w>já\s+era)(?=\s*[.!…]|\s*$)", Ci),
                 m => m.Groups["pre"].Value + CaseHelper.MatchCase(m.Groups["w"].Value, "acabou")),

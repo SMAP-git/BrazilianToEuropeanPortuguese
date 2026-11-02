@@ -309,6 +309,22 @@ Rules found by comparing the output against real PT-PT subtitles:
   *quer* and lines that continue the previous cue in lowercase are left alone.
 - *você* after a command is the subject, not the object: *Me ouça você!* → *Ouve-me tu!*, *Olha você!* →
   *Olha tu!*, *Me ama você?* → *Amas-me?* (while *Odeio você* → *Odeio-te*).
+- More vocabulary that real PT-PT subtitles never use: *merecimento* → *mérito*, *sem-teto* → *sem-abrigo*,
+  *premiê* → *primeiro-ministro*, *trilha (sonora)* → *trilho (banda sonora)*, *fazer trilha* → *fazer
+  caminhadas*, *show* → *espetáculo* (*reality show* kept), *milk-shake* → *batido*, *hilário* →
+  *hilariante*, *pelado* → *nu* (*jogar uma pelada* → *jogar uma futebolada*), *boliche* → *bowling*,
+  *drinque* → *bebida*, *torta* → *tarte* (*linha torta* kept), *moleza* → *canja*, *coquetel* →
+  *cocktail*, *covarde* → *cobarde*, *vestiário* → *balneário*, *lavanderia* → *lavandaria*, *galpão* →
+  *armazém*, *estoque* → *stock*, *duto* → *conduta*, *coceira* → *comichão*, *cafeteria* → *cafetaria*,
+  *barbante* → *cordel*, *linguajar* → *linguagem*, *loteria* → *lotaria*, *propina* → *suborno*,
+  *pichação* → *grafíti*, *travesseiro* → *almofada*, *abajur* → *candeeiro*, *edredom* → *edredão*,
+  *xingamento* → *insulto*, *bronca* → *raspanete*, *dar descarga* → *puxar o autoclismo*,
+  *compartilhar* → *partilhar*, *malhar* → *treinar* (*gato malhado* kept). Articles and adjectives
+  follow the new gender (*na trilha certa* → *no trilho certo*).
+- *Lógico* on its own (*Lógico, mas…*, *Isso é lógico.*) → *Claro*; *raciocínio lógico* is kept.
+  *Cansei das/dos…* → *Fartei-me das/dos…*.
+- A preposition or article typed twice, also across the line break, is removed: *o mérito de / de serem*
+  → *o mérito / de serem*, *Vou de de carro* → *Vou de carro* (*para para pensar* and *de A a Z* are kept).
 - *de boa* → *na boa* only at the end of a phrase (*Estou de boa.*), not in *o tipo de boa vizinha*.
 - A rule never merges the two lines of a subtitle: if a change joins words across the line break
   (*por\nque* → *porque*), the line break is put back at the closest space.
