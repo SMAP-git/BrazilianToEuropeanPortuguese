@@ -28,6 +28,17 @@ public sealed class BatchModeTests : IDisposable
     private static List<string> Texts(PluginResponse response) =>
         SubRipParser.Parse(response.Subtitle!.Native).Select(b => b.Text).ToList();
 
+    [Fact]
+    public void Batch_FormalDialogueContextUsesEarlierAndLaterAddress()
+    {
+        var response = BatchMode.BuildBatchResponse(Request("Sr. diretor, um momento.", "Não sei.", "Certo, veja...", "Não fale comigo.", "O estoque acabou."),
+            WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Sr. diretor, um momento.", "Não sei.", "Certo, veja...", "Não fale comigo.", "O stock acabou." }, Texts(response));
+        response = BatchMode.BuildBatchResponse(Request("Certo, veja...", "Não sei.", "Não concordo, detetive.", "O estoque acabou."),
+            WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Contains("Certo, veja...", Texts(response));
+    }
+
     private PluginRequest EpisodeRequest(string text, bool withEnglish, string english = "So we got prints and his picture now.")
     {
         var request = Request(text);

@@ -594,7 +594,7 @@ public sealed class PortugueseConverter
         {
             s = Grab.Apply(s);
             s = VocabularyRules.Apply(s);
-            s = VocabularyRules.ReplaceShutUp(s, _options.YouToTu);
+            s = VocabularyRules.ReplaceShutUp(s, _options.YouToTu && reference is not { FormalAddress: true });
             s = VocabularyRules.ReplaceBareReflexive(s);
             s = DepartingBarca.Replace(s, ReplaceDepartingBarca);
             s = _verbs?.Apply(s) ?? s;
@@ -634,7 +634,7 @@ public sealed class PortugueseConverter
 
         if (_options.YouToTu)
         {
-            s = TuImperative.Apply(s, previousText);
+            s = TuImperative.Apply(s, previousText, reference is { FormalAddress: true });
         }
 
         if (_options.Progressive)
@@ -644,7 +644,7 @@ public sealed class PortugueseConverter
 
         if (_options.Pronouns)
         {
-            s = PronominalVerbs.Apply(s, _options.YouToTu);
+            s = PronominalVerbs.Apply(s, _options.YouToTu && reference is not { FormalAddress: true });
             s = CliticAllomorphs.Apply(s);
         }
 
@@ -2193,12 +2193,14 @@ public sealed class PortugueseConverter
         /// Speaking to someone by title ("Detetive", "Senhor", "Doutora"...) is formal in Portugal: "você" then
         /// becomes the polite 3rd person (consigo, para si, "Você está bem?" → "Está bem?") instead of "tu".
         /// </summary>
-        private static readonly Regex FormalAddress = new(
-            NotWordBefore + @"(?:senhor|senhora|senhores|senhoras|sr|sra|srta|dona|doutor|doutora|dr|dra|detetive|detective|agente|(?<!o )(?<!a )(?<!um )(?<!uma )oficial|" +
+        internal const string FormalTitles =
+            @"senhor|senhora|senhores|senhoras|sr|sra|srta|dona|doutor|doutora|dr|dra|detetive|detective|agente|(?<!o )(?<!a )(?<!um )(?<!uma )oficial|" +
             @"inspetor|inspetora|inspector|capitão|tenente|sargento|cabo|coronel|general|comandante|major|almirante|xerife|juiz|juíza|" +
             @"meritíssimo|meritíssima|padre|reverendo|madre|majestade|alteza|excelência|presidente|ministro|ministra|embaixador|" +
             @"embaixadora|diretor|diretora|professor|professora|patrão|patroa|senador|senadora|governador|governadora|prefeito|" +
-            @"prefeita|madame|mademoiselle|mister|monsieur|sir|lady|lorde|milorde|vossa)" + NotWordAfter, Ci);
+            @"prefeita|madame|mademoiselle|mister|monsieur|sir|lady|lorde|milorde|vossa|(?:vice-)?cônsul";
+
+        private static readonly Regex FormalAddress = new(NotWordBefore + "(?:" + FormalTitles + ")" + NotWordAfter, Ci);
 
         private static readonly Regex FormalSubjectYou = new(
             @"(?<sub>" + NotWordBefore + @"(?:que|se|quando|porque|onde|como|quem|enquanto|embora|caso|talvez|quanto|qual|até\s+que|antes\s+que|depois\s+que)\s+)?" +
@@ -2211,7 +2213,7 @@ public sealed class PortugueseConverter
             var explicitAddressee = ExplicitAddressee.IsMatch(s);
             // "Está bem?" next to "Is he okay?": the dropped subject is not "você".
             var droppedYou = reference is not { ExcludesDroppedYou: true };
-            if (IsFormal(s))
+            if (IsFormal(s) || reference is { FormalAddress: true })
             {
                 return ApplyFormal(s);
             }
@@ -3774,10 +3776,15 @@ public sealed class PortugueseConverter
         /// Brazilian commands use the "você" form ("Coloque", "Escute"); Portugal mostly says them in the "tu" form, the same as
         /// every "você" the converter turns into "tu". Formal lines (and lines after a formal one) keep the "você" form.
         /// </summary>
-        public static string Apply(string s, string? previousText = null) =>
+        public static string Apply(string s, string? previousText = null, bool formalContext = false) =>
             Sentence.Replace(s, sentence =>
             {
                 var text = sentence.Value;
+                if (formalContext)
+                {
+                    return text;
+                }
+
                 if (text.TrimEnd().EndsWith('?'))
                 {
                     return text;

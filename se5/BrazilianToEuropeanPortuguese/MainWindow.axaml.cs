@@ -341,7 +341,7 @@ public partial class MainWindow : Window
             }
 
             var reference = _alignment?.Texts[i];
-            var hint = ReferenceHint.FromText(reference);
+            var hint = ReferenceHint.FromContext(_blocks, i, _alignment?.Texts);
             var changed = converter.TryConvert(_blocks[i].Text, out var converted, i > 0 ? _blocks[i - 1].Text : null, hint);
             var text = changed ? converted : _blocks[i].Text;
             var review = string.Join("\n", new[] { ReferenceReview.Note(text, hint), GrammarReview.Note(text), IdiomHints.Note(text, reference) }.Where(n => n != null));

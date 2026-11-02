@@ -21,6 +21,85 @@ public sealed class ReferenceTests(ITestOutputHelper output)
     private static SrtBlock Cue(long start, long end, string text) => new() { StartMs = start, EndMs = end, Text = text };
 
     [Theory]
+    [InlineData("Bem, Sr. vice-cônsul,")]
+    [InlineData("Bom dia, professora.")]
+    [InlineData("Senhor Silva, posso entrar?")]
+    [InlineData("Não concordo, detetive.")]
+    [InlineData("- Muito obrigado, doutora.")]
+    [InlineData("<i>Capitão, espere.</i>")]
+    public void NearbyPortugueseAddressPreservesFormalCommands(string address)
+    {
+        var blocks = new[] { Cue(0, 1500, address), Cue(2000, 3500, "Não sei."), Cue(4000, 5500, "Certo, veja...") };
+        var hint = ReferenceHint.FromContext(blocks, 2);
+        Assert.True(hint!.FormalAddress);
+        Assert.Equal("Certo, veja...", Converter.Convert(blocks[2].Text, blocks[1].Text, hint));
+    }
+
+    [Theory]
+    [InlineData("I disagree, Detective.")]
+    [InlineData("Well, Mr. Deputy Consul,")]
+    [InlineData("Yes, sir.")]
+    [InlineData("Doctor Smith, please listen.")]
+    [InlineData("Thank you, Your Honor.")]
+    public void NearbyEnglishAddressPreservesFormalCommands(string address)
+    {
+        var blocks = new[] { Cue(0, 1500, "Certo, veja..."), Cue(2000, 3500, "Não sei."), Cue(4000, 5500, "Não concordo.") };
+        var english = new string?[] { "Okay, look--", "I don't know.", address };
+        var hint = ReferenceHint.FromContext(blocks, 0, english);
+        Assert.True(hint!.FormalAddress);
+        Assert.Equal("Certo, veja...", Converter.Convert(blocks[0].Text, null, hint));
+    }
+
+    [Theory]
+    [InlineData("O detetive chegou.", "The detective arrived.")]
+    [InlineData("Falei com o professor.", "I spoke to the professor.")]
+    [InlineData("O senhor saiu.", "The gentleman left.")]
+    [InlineData("Foi uma decisão do juiz.", "It was the judge's decision.")]
+    [InlineData("Você sabe.", "You know.")]
+    public void MentionedTitlesAndEnglishYouDoNotEstablishFormalContext(string text, string english)
+    {
+        var blocks = new[] { Cue(0, 1500, text), Cue(2000, 3500, "Não sei."), Cue(4000, 5500, "Certo, veja...") };
+        var reference = new string?[] { english, "I don't know.", "Okay, look--" };
+        Assert.False(ReferenceHint.FromContext(blocks, 2, reference)!.FormalAddress);
+        Assert.Equal("Certo, vê...", Converter.Convert(blocks[2].Text, blocks[1].Text, ReferenceHint.FromContext(blocks, 2, reference)));
+    }
+
+    [Fact]
+    public void FormalContextStopsAtTimingAndInformalBoundaries()
+    {
+        var gap = new[] { Cue(0, 1000, "Senhor, espere."), Cue(6001, 7000, "Certo, veja...") };
+        Assert.False(DialogueRegister.IsFormal(gap, 1));
+        var continuous = Enumerable.Range(0, 12).Select(i => Cue(i * 3000, i * 3000 + 2500, i == 0 ? "Senhor, espere." : "Certo, veja...")).ToArray();
+        Assert.True(DialogueRegister.IsFormal(continuous, 10));
+        Assert.False(DialogueRegister.IsFormal(continuous, 11));
+        var dense = Enumerable.Range(0, 14).Select(i => Cue(i * 1000, i * 1000 + 900, i == 0 ? "Senhor, espere." : "Certo, veja...")).ToArray();
+        Assert.True(DialogueRegister.IsFormal(dense, 12));
+        Assert.False(DialogueRegister.IsFormal(dense, 13));
+        var informal = new[] { Cue(0, 1000, "Senhor, espere."), Cue(2000, 3000, "Tu sabes."), Cue(4000, 5000, "Certo, veja...") };
+        Assert.False(DialogueRegister.IsFormal(informal, 2));
+        Assert.False(DialogueRegister.IsFormal(informal, 1));
+        var ahead = new[] { Cue(0, 1000, "Certo, veja..."), Cue(2000, 3000, "Tu sabes."), Cue(4000, 5000, "Senhor, espere.") };
+        Assert.False(DialogueRegister.IsFormal(ahead, 0));
+    }
+
+    [Theory]
+    [InlineData("Diga a sua mãe.", "Diga à sua mãe.")]
+    [InlineData("Não fale comigo.", "Não fale comigo.")]
+    [InlineData("Você tem razão.", "Tem razão.")]
+    [InlineData("Posso falar com você?", "Posso falar consigo?")]
+    [InlineData("Isto é para você.", "Isto é para si.")]
+    [InlineData("Cale a boca.", "Cale-se.")]
+    [InlineData("Lembre de fechar a porta.", "Lembre-se de fechar a porta.")]
+    public void FormalContextIsSharedByAddressPronounsAndCommands(string source, string expected)
+    {
+        var blocks = new[] { Cue(0, 1500, "Doutora, um momento."), Cue(2000, 3500, "Não sei."), Cue(4000, 5500, source) };
+        var hint = ReferenceHint.FromContext(blocks, 2);
+        Assert.Equal(expected, Converter.Convert(source, blocks[1].Text, hint));
+        Assert.Equal(expected, Converter.Convert(expected, blocks[1].Text, hint));
+        Assert.Null(ReferenceReview.Note("Você tem a sua chave.", hint));
+    }
+
+    [Theory]
     [InlineData("Ninguém leva as tuas coisas.", false, false)]
     [InlineData("I already sent him his stuff.", false, true)]
     [InlineData("This was his last message to us,", false, true)]
@@ -324,6 +403,25 @@ public sealed class ReferenceTests(ITestOutputHelper output)
             Assert.Equal("Não vou falar mais com vocês.", window.Proposals.Single(p => p.LineIndex == 3).ConvertedText);
             Assert.StartsWith("Reference matched 4 of 4", window.ReferenceStatusText);
             Assert.Contains("1 line(s) marked for review", window.ReferenceStatusText);
+            var formalEnglish = Path.Combine(data, "formal.en.srt");
+            File.WriteAllText(formalEnglish, "1\n00:00:01,000 --> 00:00:02,000\nOkay, look--\n\n" +
+                                           "2\n00:00:03,000 --> 00:00:04,000\nI don't know.\n\n" +
+                                           "3\n00:00:05,000 --> 00:00:06,000\nI disagree, Detective.\n");
+            var formalWindow = new MainWindow(new PluginRequest
+            {
+                Subtitle = new PluginSubtitle
+                {
+                    Format = "SubRip",
+                    FileName = Path.Combine(data, "formal.pt-br.srt"),
+                    SubRip = "1\n00:00:01,000 --> 00:00:02,000\nCerto, veja...\n\n" +
+                             "2\n00:00:03,000 --> 00:00:04,000\nNão sei.\n\n" +
+                             "3\n00:00:05,000 --> 00:00:06,000\nNão concordo.\n",
+                },
+            });
+            Assert.Equal("Certo, vê...", formalWindow.Proposals.Single(p => p.LineIndex == 0).ConvertedText);
+            formalWindow.FindReferenceAutomatically().GetAwaiter().GetResult();
+            Assert.Equal(3, formalWindow.Alignment!.Matched);
+            Assert.DoesNotContain(formalWindow.Proposals, p => p.LineIndex == 0 && p.IsChange);
         }
         finally
         {

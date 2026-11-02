@@ -48,7 +48,7 @@ public static class BatchMode
         var grammar = 0;
         for (var i = 0; i < blocks.Count; i++)
         {
-            var hint = ReferenceHint.FromText(alignment?.Texts[i]);
+            var hint = ReferenceHint.FromContext(blocks, i, alignment?.Texts);
             var changed = converter.TryConvert(blocks[i].Text, out var converted, i > 0 ? blocks[i - 1].Text : null, hint);
             if (changed)
             {

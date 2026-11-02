@@ -10,6 +10,17 @@ namespace SubtitleEdit.Plugins.BrazilianToEuropeanPortuguese;
 /// </summary>
 public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, bool ThirdPerson, bool ThirdPossessive)
 {
+    /// <summary>A nearby explicit form of address establishes a formal dialogue register.</summary>
+    public bool FormalAddress { get; init; }
+
+    public static ReferenceHint? FromContext(IReadOnlyList<SrtBlock> source, int index, IReadOnlyList<string?>? english = null)
+    {
+        var hint = FromText(english?[index]);
+        return DialogueRegister.IsFormal(source, index, english)
+            ? (hint ?? new ReferenceHint(false, false, false, false)) with { FormalAddress = true }
+            : hint;
+    }
+
     private static readonly Regex Word = new(@"\p{L}+(?:['’]\p{L}+)?", RegexOptions.Compiled);
     private static readonly HashSet<string> Second = new(StringComparer.Ordinal) { "you", "ya", "yourself", "yourselves", "y'all" };
     private static readonly HashSet<string> SecondOwn = new(StringComparer.Ordinal) { "your", "yours" };
@@ -134,6 +145,52 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
             StartsWithSecondPersonSubject = startsWithSecondPersonSubject,
             Past = past && !modal, Present = present && !past && !modal };
     }
+}
+
+internal static class DialogueRegister
+{
+    private const RegexOptions Ci = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
+    private const string Name = @"(?:\s+(?-i:\p{Lu})[\p{L}\p{M}'’-]*){0,3}";
+    private const string Start = @"(?:^|[,!?;:\n]\s*|(?<![\p{L}\p{M}])[-–—]\s*)\s*(?:(?:bem|certo|sim|não|well|okay|yes|no)\s*,?\s+)?";
+    private const string End = @"(?=\s*(?:[,!?…]|\.{1,3}\s*$|$))";
+    private static readonly Regex PortugueseAddress = new(
+        Start + @"(?:(?:sr|sra|srta|senhor|senhora)\.?\s+)?(?:" +
+        PortugueseConverter.YouToTuRules.FormalTitles + @")\.?" + Name + End, Ci);
+    private static readonly Regex EnglishAddress = new(
+        Start + @"(?:(?:Mr|Mrs|Ms|Dr)\.?\s+(?:(?:Deputy|Vice)[ -])?(?:Consul|Ambassador|President)" + Name +
+        @"|(?:Mr|Mrs|Ms|Dr)\.?" + Name +
+        @"|sir|ma'am|madam|Detective|Officer|Inspector|Captain|Lieutenant|Sergeant|Colonel|General|Commander|Chief|Judge|Professor|Doctor|Ambassador|Consul|Your\s+(?:Honor|Majesty|Highness|Excellency))" +
+        Name + End, Ci);
+    private static readonly Regex Informal = new(
+        @"(?<![\p{L}\p{M}])(?:tu|teus?|tuas?|ti|contigo)(?![\p{L}\p{M}])", Ci);
+
+    internal static bool IsFormal(IReadOnlyList<SrtBlock> source, int index, IReadOnlyList<string?>? english = null)
+    {
+        if (Informal.IsMatch(Plain(source[index].Text))) return false;
+        if (Address(index)) return true;
+        foreach (var direction in new[] { -1, 1 })
+        {
+            var previous = index;
+            for (var distance = 1; distance <= 12; distance++)
+            {
+                var candidate = index + direction * distance;
+                if (candidate < 0 || candidate >= source.Count) break;
+                var left = source[Math.Min(previous, candidate)];
+                var right = source[Math.Max(previous, candidate)];
+                if (right.StartMs - left.EndMs > 5000 ||
+                    Math.Abs(source[candidate].StartMs - source[index].StartMs) > 30000 ||
+                    Informal.IsMatch(Plain(source[candidate].Text))) break;
+                if (Address(candidate)) return true;
+                previous = candidate;
+            }
+        }
+        return false;
+
+        bool Address(int i) => PortugueseAddress.IsMatch(Plain(source[i].Text)) ||
+                               english != null && EnglishAddress.IsMatch(Plain(english[i] ?? string.Empty));
+    }
+
+    private static string Plain(string text) => Regex.Replace(text, @"<[^<>]*>|\{[^{}]*\}", " ");
 }
 
 public sealed record TimeMap(double Scale, double OffsetMs)
@@ -448,7 +505,7 @@ public static class ReferenceReview
 
     public static string? Note(string text, ReferenceHint? hint)
     {
-        if (hint == null || !(hint.SecondPerson || hint.SecondPossessive)) return null;
+        if (hint == null || hint.FormalAddress || !(hint.SecondPerson || hint.SecondPossessive)) return null;
         var plain = Tags.Replace(text, " ");
         if (Formal.IsMatch(plain)) return null;
 

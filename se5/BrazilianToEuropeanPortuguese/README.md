@@ -229,6 +229,15 @@ Commands with no *tu* word also take the *tu* form, as real PT-PT subtitles most
 formal (*senhor/senhora*, *si*, *consigo*, *você*, a title such as *Sr./Sra./Dr.*), when it starts with
 *por favor* (*Por favor, mate-me apenas*), for set phrases (*Seja como for*) and for words that are
 also nouns, adjectives or names (*Golfe*, *Teste*, *Vista para o mar*, *Livre*, *Tina*, *Sra. Chore*).
+The preview and batch conversion also check up to 12 original cues before and after each line,
+within 30 seconds, for explicit forms of address such as *Sr. diretor,* or *Não concordo, detetive.*
+Aligned English can supply the same evidence (*Mr. …*, *…, Detective*, *Yes, sir*).
+This preserves formal commands (*Certo, veja*, *Não fale*) and formal address/pronouns
+even when the title is not in the immediately preceding cue. A gap greater than 5 seconds
+or explicit Portuguese *tu/teu/tua/ti/contigo* stops the context search. Mere mentions
+(*o detetive chegou*, *the doctor called*) and English *you/look* do not establish formality.
+Without speaker or scene labels this is a bounded heuristic, not a guarantee that nearby
+lines address the same person; review the preview when a scene changes without a pause.
 After an adjective the pronoun goes after the infinitive: *Foi bom te ver* → *Foi bom ver-te*,
 *Foi ótimo te conhecer* → *Foi ótimo conhecer-te*; after a preposition it stays before
 (*Obrigado por me receber*).
