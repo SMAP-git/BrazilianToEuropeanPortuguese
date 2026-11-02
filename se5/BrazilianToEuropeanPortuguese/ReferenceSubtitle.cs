@@ -1,0 +1,658 @@
+using System.Text;
+using System.Text.RegularExpressions;
+using SubtitleEdit.Plugins.Shared;
+
+namespace SubtitleEdit.Plugins.BrazilianToEuropeanPortuguese;
+
+/// <summary>
+/// Who an English reference cue talks about. It only steers ambiguous rules (seu/sua, dropped "você");
+/// it never rewrites text by itself.
+/// </summary>
+public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, bool ThirdPerson, bool ThirdPossessive)
+{
+    private static readonly Regex Word = new(@"\p{L}+(?:['’]\p{L}+)?", RegexOptions.Compiled);
+    private static readonly HashSet<string> Second = new(StringComparer.Ordinal) { "you", "ya", "yourself", "yourselves", "y'all" };
+    private static readonly HashSet<string> SecondOwn = new(StringComparer.Ordinal) { "your", "yours" };
+    private static readonly HashSet<string> Third = new(StringComparer.Ordinal)
+    {
+        "he", "she", "it", "they", "him", "them", "himself", "herself", "itself", "themselves",
+    };
+    private static readonly HashSet<string> ThirdOwn = new(StringComparer.Ordinal) { "his", "her", "hers", "its", "their", "theirs" };
+    private static readonly HashSet<string> BoyWords = new(StringComparer.Ordinal)
+    {
+        "boy", "boys", "guy", "guys", "lad", "lads", "fella", "fellas", "fellow", "dude", "dudes", "man", "men",
+    };
+    private static readonly HashSet<string> GirlWords = new(StringComparer.Ordinal) { "girl", "girls", "lass", "lady", "ladies", "woman", "women" };
+    private static readonly HashSet<string> KidWords = new(StringComparer.Ordinal)
+    {
+        "kid", "kids", "kiddo", "child", "children", "baby", "babies", "little", "toddler", "toddlers", "brat", "brats",
+    };
+
+    /// <summary>The English says "boy/guy" (not "kid"): "garoto" is "rapaz", not "miúdo".</summary>
+    public bool Boy { get; init; }
+
+    /// <summary>The English says "girl" (not "kid"): "garota" is "rapariga", not "miúda".</summary>
+    public bool Girl { get; init; }
+
+    /// <summary>The English says "kid/child/little": "miúdo" is right.</summary>
+    public bool Kid { get; init; }
+
+    /// <summary>
+    /// The English says "this/these" and never "that/those": Brazilian "isso/esse" (used for both) is pt-PT "isto/este".
+    /// </summary>
+    public bool This { get; init; }
+
+    /// <summary>The English verb is in the past ("stepped", "did", "was") with no modal: "Eu nunca sair" → "Eu nunca saí".</summary>
+    public bool Past { get; init; }
+
+    /// <summary>The English verb is in the present ("do", "is", "don't") with no past or modal: "Eu nunca sair" → "Eu nunca saio".</summary>
+    public bool Present { get; init; }
+
+    private static readonly HashSet<string> PastWords = new(StringComparer.Ordinal)
+    {
+        "did", "didn't", "was", "wasn't", "were", "weren't", "had", "hadn't", "went", "came", "saw", "said", "told", "took", "got",
+        "made", "left", "ran", "gave", "found", "knew", "thought", "felt", "kept", "lost", "met", "paid", "sat", "stood", "wrote",
+        "broke", "brought", "bought", "caught", "fought", "taught", "drove", "ate", "fell", "forgot", "heard", "held", "meant",
+        "sent", "slept", "spent", "spoke", "stole", "swore", "threw", "understood", "woke", "won", "wore", "began", "chose", "drank",
+        "flew", "grew", "hid", "led", "rode", "rang", "sang", "sold", "shot", "sank", "swam", "tore", "became", "built", "dealt",
+    };
+    private static readonly HashSet<string> PresentWords = new(StringComparer.Ordinal)
+    {
+        "do", "does", "don't", "doesn't", "am", "i'm", "is", "isn't", "are", "aren't", "you're", "we're", "they're", "he's", "she's",
+    };
+    private static readonly HashSet<string> Modals = new(StringComparer.Ordinal)
+    {
+        "will", "won't", "would", "wouldn't", "can", "can't", "cannot", "could", "couldn't", "should", "shouldn't", "must", "might",
+        "may", "gonna", "going", "i'll", "you'll", "we'll", "they'll", "he'll", "she'll", "i'd", "you'd", "we'd", "they'd", "let's",
+    };
+    private static readonly HashSet<string> NotPast = new(StringComparer.Ordinal) { "red", "bed", "shed", "wed", "sled", "hundred", "naked", "sacred", "wicked" };
+
+    /// <summary>The reference says "his/her/their" and not "your": keep "o seu/a sua".</summary>
+    public bool KeepsThirdPersonPossessive => ThirdPossessive && !SecondPossessive;
+
+    /// <summary>The reference has a 3rd-person subject and no "you": a dropped subject is not "você".</summary>
+    public bool ExcludesDroppedYou => ThirdPerson && !SecondPerson && !SecondPossessive;
+
+    public static ReferenceHint? FromText(string? english)
+    {
+        if (string.IsNullOrWhiteSpace(english))
+        {
+            return null;
+        }
+
+        bool second = false, secondOwn = false, third = false, thirdOwn = false, boy = false, girl = false, kid = false, near = false, far = false;
+        bool past = false, present = false, modal = false;
+        foreach (Match m in Word.Matches(ReferenceAligner.Clean(english)))
+        {
+            var word = m.Value.ToLowerInvariant().Replace('’', '\'');
+            var stem = word.Split('\'')[0];
+            past |= PastWords.Contains(word) || word.Length >= 5 && word.EndsWith("ed") && !word.EndsWith("eed") && !NotPast.Contains(word);
+            present |= PresentWords.Contains(word);
+            modal |= Modals.Contains(word);
+            boy |= BoyWords.Contains(stem);
+            girl |= GirlWords.Contains(stem);
+            kid |= KidWords.Contains(stem);
+            near |= stem is "this" or "these";
+            far |= stem is "that" or "those";
+            if (word == "y'all" || Second.Contains(stem)) second = true;
+            else if (SecondOwn.Contains(stem)) secondOwn = true;
+            else if (ThirdOwn.Contains(stem))
+            {
+                thirdOwn = true;
+                third = true;
+            }
+            else if (Third.Contains(stem)) third = true;
+        }
+
+        return new ReferenceHint(second, secondOwn, third, thirdOwn) { Boy = boy && !kid, Girl = girl && !kid, Kid = kid, This = near && !far,
+            Past = past && !modal, Present = present && !past && !modal };
+    }
+}
+
+public sealed record TimeMap(double Scale, double OffsetMs)
+{
+    public static readonly TimeMap Identity = new(1, 0);
+    public double Map(double sourceMs) => Scale * sourceMs + OffsetMs;
+    public bool IsIdentity => Math.Abs(Scale - 1) < 1e-9 && Math.Abs(OffsetMs) < 0.5;
+}
+
+public sealed class ReferenceAlignment
+{
+    public required IReadOnlyList<string?> Texts { get; init; }
+    public required int Matched { get; init; }
+    public required int Total { get; init; }
+    public required TimeMap Map { get; init; }
+    public required string Method { get; init; }
+    public int Rejected { get; init; }
+    public double Coverage => Total == 0 ? 0 : (double)Matched / Total;
+
+    public string Describe()
+    {
+        var shift = Map.IsIdentity ? string.Empty
+            : $" (timing corrected: ×{Map.Scale:0.0000}, {Map.OffsetMs / 1000:+0.0;-0.0} s)";
+        var rejected = Rejected > 0 ? $"; {Rejected} weak match(es) ignored" : string.Empty;
+        return $"Reference matched {Matched} of {Total} cue(s) ({Coverage:P0}) by {Method}{shift}{rejected}.";
+    }
+}
+
+public static class ReferenceAligner
+{
+    public const double MinimumUsefulCoverage = 0.6;
+    public const double GlobalMatchSimilarity = 0.68;
+    public const double GlobalMatchMargin = 0.08;
+    public const double PairSimilarityFloor = 0.2;
+    private const double ToleranceMs = 1500;
+    private static readonly Regex Tags = new(@"<[^<>]*>|\{[^{}]*\}|\\[Nnh]", RegexOptions.Compiled);
+    private static readonly Regex Spaces = new(@"\s+", RegexOptions.Compiled);
+    private static readonly Regex LineDash = new(@"(?m)^\s*[-–—]\s*", RegexOptions.Compiled);
+    // Hearing-impaired extras: "(sighs)", "[door closes]", "♪", and speaker labels such as "TERESA:" or "DEMARCUS (groans):".
+    private static readonly Regex HearingImpaired = new(
+        @"\([^()]*\)|\[[^\[\]]*\]|[♪♫*#]|(?m)(?<=^\s*|[-–—]\s*)\p{Lu}[\p{Lu}\p{N} .'-]*\p{Lu}\s*:(?!\d)", RegexOptions.Compiled);
+    private static readonly Regex Letters = new(@"[\p{L}\p{N}]", RegexOptions.Compiled);
+    private static readonly Regex EnglishWord = new(
+        @"\b(?:the|you|your|and|is|are|what|i'm|it's|don't|that|this|have|was|with)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    static ReferenceAligner() => Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+    public static List<SrtBlock> Load(string path)
+    {
+        var info = new FileInfo(path);
+        if (info.Length > 20 * 1024 * 1024)
+        {
+            throw new InvalidDataException("The reference subtitle is larger than 20 MB.");
+        }
+
+        var cues = SubRipParser.Parse(Decode(File.ReadAllBytes(path)));
+        if (cues.Count == 0)
+        {
+            throw new InvalidDataException("No SubRip cues were found in the reference file.");
+        }
+
+        return cues;
+    }
+
+    public static string Decode(byte[] bytes)
+    {
+        if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE) return Encoding.Unicode.GetString(bytes, 2, bytes.Length - 2);
+        if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF) return Encoding.BigEndianUnicode.GetString(bytes, 2, bytes.Length - 2);
+        var start = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF ? 3 : 0;
+        try
+        {
+            return new UTF8Encoding(false, true).GetString(bytes, start, bytes.Length - start);
+        }
+        catch (DecoderFallbackException)
+        {
+            return Encoding.GetEncoding(1252).GetString(bytes);
+        }
+    }
+
+    public static string Clean(string text) =>
+        Spaces.Replace(LineDash.Replace(HearingImpaired.Replace(HearingImpaired.Replace(Tags.Replace(text, " "), " "), " "), " "), " ").Trim();
+
+    public static bool LooksEnglish(IReadOnlyList<SrtBlock> reference)
+    {
+        var withText = reference.Where(c => Letters.IsMatch(c.Text)).ToList();
+        return withText.Count > 0 && withText.Count(c => EnglishWord.IsMatch(Clean(c.Text))) >= withText.Count * 0.3;
+    }
+
+    /// <summary>
+    /// Every source cue gets the text of the reference cues it overlaps on the (mapped) timeline.
+    /// <paramref name="pairSimilarity"/> can veto a pair, e.g. a MiniLM check.
+    /// </summary>
+    public static ReferenceAlignment AlignByTiming(IReadOnlyList<SrtBlock> source, IReadOnlyList<SrtBlock> reference,
+        TimeMap? map = null, Func<int, int, double>? pairSimilarity = null, string method = "timing",
+        Func<double, double>? localOffset = null)
+    {
+        map ??= TimeMap.Identity;
+        var order = Enumerable.Range(0, reference.Count)
+            .Where(j => Letters.IsMatch(reference[j].Text) && reference[j].EndMs > reference[j].StartMs)
+            .OrderBy(j => reference[j].StartMs).ToArray();
+        var longest = order.Length == 0 ? 0 : order.Max(j => reference[j].EndMs - reference[j].StartMs);
+        var texts = new string?[source.Count];
+        int matched = 0, total = 0, rejected = 0;
+
+        for (var i = 0; i < source.Count; i++)
+        {
+            if (!Letters.IsMatch(source[i].Text)) continue;
+            total++;
+            var shift = localOffset?.Invoke(source[i].StartMs) ?? 0;
+            var start = map.Map(source[i].StartMs) + shift;
+            var end = map.Map(source[i].EndMs) + shift;
+            var duration = Math.Max(1, end - start);
+            var first = LowerBound(order, reference, start - longest);
+            var parts = new List<int>();
+            for (var k = first; k < order.Length && reference[order[k]].StartMs < end; k++)
+            {
+                var r = reference[order[k]];
+                var overlap = Math.Min(end, r.EndMs) - Math.Max(start, r.StartMs);
+                var shorter = Math.Min(duration, r.EndMs - r.StartMs);
+                if (overlap >= Math.Max(150, 0.3 * shorter)) parts.Add(order[k]);
+            }
+
+            if (parts.Count == 0) continue;
+            if (pairSimilarity != null && parts.Max(j => pairSimilarity(i, j)) < PairSimilarityFloor)
+            {
+                rejected++;
+                continue;
+            }
+
+            texts[i] = string.Join("\n", parts.Select(j => Clean(reference[j].Text)));
+            matched++;
+        }
+
+        return new ReferenceAlignment { Texts = texts, Matched = matched, Total = total, Map = map, Method = method, Rejected = rejected };
+    }
+
+    private static int LowerBound(int[] order, IReadOnlyList<SrtBlock> reference, double value)
+    {
+        int low = 0, high = order.Length;
+        while (low < high)
+        {
+            var mid = (low + high) / 2;
+            if (reference[order[mid]].StartMs < value) low = mid + 1;
+            else high = mid;
+        }
+        return low;
+    }
+
+    public static bool IsUsableForGlobalMatch(string text) => Letters.Matches(Clean(text)).Count >= 12;
+
+    /// <summary>Mutually best, clearly separated translation pairs (source index, reference index, similarity).</summary>
+    public static List<(int Source, int Reference, double Score)> MutualMatches(
+        IReadOnlyList<float[]?> source, IReadOnlyList<float[]?> reference,
+        IReadOnlyList<bool>? sourceUsable = null, IReadOnlyList<bool>? referenceUsable = null)
+    {
+        var left = Enumerable.Range(0, source.Count).Where(i => source[i] != null && (sourceUsable?[i] ?? true)).ToArray();
+        var right = Enumerable.Range(0, reference.Count).Where(j => reference[j] != null && (referenceUsable?[j] ?? true)).ToArray();
+        var result = new List<(int, int, double)>();
+        if (left.Length < 2 || right.Length < 2) return result;
+
+        var scores = new double[left.Length, right.Length];
+        for (var a = 0; a < left.Length; a++)
+            for (var b = 0; b < right.Length; b++)
+                scores[a, b] = Dot(source[left[a]]!, reference[right[b]]!);
+
+        for (var a = 0; a < left.Length; a++)
+        {
+            var (best, score, second) = Best(right.Length, b => scores[a, b]);
+            if (score < GlobalMatchSimilarity || score - second < GlobalMatchMargin) continue;
+            var (back, _, backSecond) = Best(left.Length, x => scores[x, best]);
+            if (back != a || score - backSecond < GlobalMatchMargin) continue;
+            result.Add((left[a], right[best], score));
+        }
+
+        return result;
+    }
+
+    private static (int Index, double Score, double Second) Best(int count, Func<int, double> score)
+    {
+        int index = -1;
+        double best = double.NegativeInfinity, second = double.NegativeInfinity;
+        for (var i = 0; i < count; i++)
+        {
+            var value = score(i);
+            if (value > best)
+            {
+                second = best;
+                best = value;
+                index = i;
+            }
+            else if (value > second) second = value;
+        }
+        return (index, best, second);
+    }
+
+    public static double Dot(float[] a, float[] b)
+    {
+        if (a.Length != b.Length) throw new InvalidDataException("Embedding sizes differ.");
+        double sum = 0;
+        for (var i = 0; i < a.Length; i++) sum += a[i] * b[i];
+        return sum;
+    }
+
+    /// <summary>
+    /// Robust linear fit reference = scale × source + offset over translation matches (start times).
+    /// Returns null when the matches do not agree on one timeline.
+    /// </summary>
+    public static TimeMap? FitTimeMap(IReadOnlyList<(double Source, double Reference)> matches)
+    {
+        if (matches.Count < 8) return null;
+        var sampled = Enumerable.Range(0, Math.Min(64, matches.Count))
+            .Select(k => matches[(int)Math.Round(k * (matches.Count - 1) / Math.Max(1.0, Math.Min(64, matches.Count) - 1))])
+            .Distinct().ToArray();
+        var candidates = new List<TimeMap> { TimeMap.Identity };
+        foreach (var m in sampled) candidates.Add(new TimeMap(1, m.Reference - m.Source));
+        for (var a = 0; a < sampled.Length; a++)
+            for (var b = a + 1; b < sampled.Length; b++)
+            {
+                var distance = sampled[b].Source - sampled[a].Source;
+                if (Math.Abs(distance) < 60_000) continue;
+                var scale = (sampled[b].Reference - sampled[a].Reference) / distance;
+                if (scale is < 0.8 or > 1.25) continue;
+                candidates.Add(new TimeMap(scale, sampled[a].Reference - scale * sampled[a].Source));
+            }
+
+        var identityInliers = Inliers(TimeMap.Identity, matches).Count;
+        var best = candidates
+            .Select(map => (map, inliers: Inliers(map, matches)))
+            .OrderByDescending(c => c.inliers.Count)
+            .ThenBy(c => c.inliers.Count == 0 ? double.MaxValue : c.inliers.Average(m => Math.Abs(c.map.Map(m.Source) - m.Reference)))
+            .First();
+        if (best.inliers.Count < Math.Max(6, matches.Count * 0.6)) return null;
+        // Identity explains (almost) as much: the files already share one timeline.
+        if (identityInliers >= best.inliers.Count - Math.Max(1, matches.Count / 20)) return TimeMap.Identity;
+
+        var refined = LeastSquares(best.inliers) ?? best.map;
+        var final = Inliers(refined, matches);
+        return final.Count >= best.inliers.Count ? refined : best.map;
+    }
+
+    private static List<(double Source, double Reference)> Inliers(TimeMap map, IReadOnlyList<(double Source, double Reference)> matches) =>
+        matches.Where(m => Math.Abs(map.Map(m.Source) - m.Reference) <= ToleranceMs).ToList();
+
+    private static TimeMap? LeastSquares(IReadOnlyList<(double Source, double Reference)> points)
+    {
+        var meanX = points.Average(p => p.Source);
+        var meanY = points.Average(p => p.Reference);
+        var sxx = points.Sum(p => (p.Source - meanX) * (p.Source - meanX));
+        if (sxx <= 0) return new TimeMap(1, meanY - meanX);
+        var scale = points.Sum(p => (p.Source - meanX) * (p.Reference - meanY)) / sxx;
+        if (scale is < 0.8 or > 1.25) return null;
+        // A rate difference smaller than cue-boundary noise over the whole span is just an offset.
+        var span = points.Max(p => p.Source) - points.Min(p => p.Source);
+        if (Math.Abs(scale - 1) * span < 500) return new TimeMap(1, meanY - meanX);
+        return new TimeMap(scale, meanY - scale * meanX);
+    }
+
+    /// <summary>
+    /// Timing first; MiniLM translation matches verify it and fix an offset or frame-rate difference,
+    /// and pairs whose texts clearly differ are dropped.
+    /// </summary>
+    public static ReferenceAlignment AlignWithEmbeddings(IReadOnlyList<SrtBlock> source, IReadOnlyList<SrtBlock> reference,
+        IReadOnlyList<float[]?> sourceVectors, IReadOnlyList<float[]?> referenceVectors)
+    {
+        var matches = MutualMatches(sourceVectors, referenceVectors,
+            source.Select(b => IsUsableForGlobalMatch(b.Text)).ToList(),
+            reference.Select(b => IsUsableForGlobalMatch(b.Text)).ToList());
+        var points = matches.Select(m => ((double)source[m.Source].StartMs, (double)reference[m.Reference].StartMs)).ToList();
+        var map = FitTimeMap(points);
+        double Similarity(int i, int j) => sourceVectors[i] is { } a && referenceVectors[j] is { } b ? Dot(a, b) : 1;
+        var method = points.Count < 8
+            ? $"timing (MiniLM found only {matches.Count} translation match(es), too few to check the timing)"
+            : $"timing checked with {matches.Count} MiniLM translation match(es)";
+        return AlignByTiming(source, reference, map ?? TimeMap.Identity, Similarity, method,
+            points.Count < 8 ? null : LocalOffsets(points, map ?? TimeMap.Identity));
+    }
+
+    /// <summary>
+    /// What a single straight line misses - a cut scene or a drifting section - comes from the median residual of
+    /// the translation matches near each cue.
+    /// </summary>
+    public static Func<double, double> LocalOffsets(IReadOnlyList<(double Source, double Reference)> matches, TimeMap map)
+    {
+        var residuals = matches.Select(m => (m.Source, Residual: m.Reference - map.Map(m.Source)))
+            .OrderBy(m => m.Source).ToArray();
+        return time =>
+        {
+            foreach (var window in new[] { 60_000.0, 180_000.0 })
+            {
+                var near = residuals.Where(r => Math.Abs(r.Source - time) <= window).Select(r => r.Residual).OrderBy(r => r).ToArray();
+                if (near.Length >= 3)
+                {
+                    var median = near[near.Length / 2];
+                    return Math.Abs(median) < 250 ? 0 : median;
+                }
+            }
+            return 0;
+        };
+    }
+}
+
+/// <summary>
+/// Lines to check by hand: the English addresses someone ("you/your") but the line still says
+/// "você" or "seu/sua", which may be formal or may need "tu/teu". Nothing is changed automatically.
+/// </summary>
+public static class ReferenceReview
+{
+    private static readonly Regex Voce = new(@"(?<![\p{L}\p{N}])[Vv]ocê(?![\p{L}\p{N}])", RegexOptions.Compiled);
+    private static readonly Regex Seu = new(@"(?<![\p{L}\p{N}])(?:[Ss]eus?|[Ss]uas?)(?![\p{L}\p{N}])", RegexOptions.Compiled);
+    private static readonly Regex Formal = new(@"(?<![\p{L}\p{N}])(?:[Ss]enhora?s?|[Vv]ossa|[Dd]outora?|[Ss]r\.|[Ss]ra\.|[Ee]xcelência|[Mm]ajestade|[Aa]lteza|[Ss]enhoria|[Ee]minência|[Ss]antidade|[Mm]eritíssim[oa])(?![\p{L}\p{N}])", RegexOptions.Compiled);
+    private static readonly Regex Tags = new(@"<[^<>]*>|\{[^{}]*\}", RegexOptions.Compiled);
+
+    public static string? Note(string text, ReferenceHint? hint)
+    {
+        if (hint == null || !(hint.SecondPerson || hint.SecondPossessive)) return null;
+        var plain = Tags.Replace(text, " ");
+        if (Formal.IsMatch(plain)) return null;
+
+        var kept = new List<string>();
+        if (Voce.IsMatch(plain)) kept.Add("você");
+        if (hint.SecondPossessive && !hint.ThirdPossessive && Seu.IsMatch(plain)) kept.Add("seu/sua");
+        if (kept.Count == 0) return null;
+
+        var english = hint.SecondPossessive && kept.Contains("seu/sua") ? "your" : "you";
+        var informal = string.Join("/", kept.Select(k => k == "você" ? "tu" : "teu/tua"));
+        return $"Review: the English says “{english}” and the line keeps {string.Join(" and ", kept)}. " +
+               $"Keep it if formal; change to {informal} if informal.";
+    }
+}
+
+/// <summary>
+/// Ungrammatical Brazilian translations the rules cannot fix without knowing the tense: "Eu nunca sair" (infinitive after
+/// a subject) and "devia ter ser" (ter + infinitive). Checked on every line, changed or not. Nothing is changed here.
+/// </summary>
+public static class GrammarReview
+{
+    private static readonly Regex TerInfinitive = new(
+        @"(?<![\p{L}\p{M}-])(?<ter>ter|tenho|tens|tem|temos|têm|tinha|tinhas|tínhamos|tinham|terá|teria|teriam)\s+(?<inf>\p{Ll}+(?:ar|er|ir)|pôr)(?![\p{L}\p{M}\d_-])",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+    private static readonly HashSet<string> Nouns = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "lugar", "jantar", "almoçar", "poder", "prazer", "dever", "olhar", "par", "mar", "lar", "bar", "colher", "mulher", "talher",
+        "qualquer", "sequer", "ar", "andar", "pesar", "saber", "ser", "haver", "ver", "existir",
+    };
+
+    private static readonly Dictionary<string, string> Participles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["ser"] = "sido", ["fazer"] = "feito", ["dizer"] = "dito", ["ver"] = "visto", ["vir"] = "vindo", ["pôr"] = "posto",
+        ["escrever"] = "escrito", ["abrir"] = "aberto", ["cobrir"] = "coberto", ["ganhar"] = "ganho", ["gastar"] = "gasto", ["pagar"] = "pago",
+    };
+
+    public static string? Note(string text)
+    {
+        var plain = Regex.Replace(text, @"<[^<>]*>|\{[^{}]*\}", " ");
+        var notes = new List<string>();
+        if (PortugueseConverter.BareInfinitive.Find(plain) is { } bare)
+        {
+            notes.Add($"Review: “{bare.Infinitive}” is in the infinitive after the subject - conjugate it: " +
+                      $"{bare.Past} (past) or {bare.Present} (present).");
+        }
+
+        foreach (Match m in TerInfinitive.Matches(plain))
+        {
+            var inf = m.Groups["inf"].Value;
+            var ter = m.Groups["ter"].Value;
+            if (Nouns.Contains(inf) && !(inf.Equals("ser", StringComparison.OrdinalIgnoreCase) && ter.Equals("ter", StringComparison.OrdinalIgnoreCase)))
+                continue;
+            if (!PortugueseVerbs.IsKnownInfinitive(inf) && !Participles.ContainsKey(inf)) continue;
+            var participle = Participles.TryGetValue(inf, out var p) ? p
+                : VerbConjugator.TryConjugate(inf.ToLowerInvariant(), out var forms) ? forms[35] : null;
+            notes.Add($"Review: “{ter} {inf}” is not grammatical - probably “{ter} de {inf}”" +
+                      (participle != null ? $" or “{ter} {participle}”." : "."));
+            break;
+        }
+
+        return notes.Count == 0 ? null : string.Join("\n", notes);
+    }
+}
+
+/// <summary>
+/// English idioms in the reference that Brazilian subtitles often translate badly or literally: the note gives the
+/// PT-PT equivalent, unless the line already has one of the expected words. Nothing is changed automatically.
+/// </summary>
+public static class IdiomHints
+{
+    private sealed record Idiom(Regex English, string Name, string PtPt, Regex Expected);
+
+    private const RegexOptions Ci = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled;
+    private const string Own = @"(?:my|your|his|her|our|their|its|one's)";
+
+    private static Idiom I(string english, string name, string ptPt, string expected) =>
+        new(new Regex(@"\b(?:" + english + @")\b", Ci), name, ptPt,
+            new Regex(@"(?<![\p{L}\p{M}])(?:" + expected + ")", Ci));
+
+    private static readonly Idiom[] Idioms =
+    {
+        I(@"bust(?:s|ed|ing)?\s+" + Own + @"\s+(?:hump|ass|butt|back|tail)", "bust my hump",
+            "dar cabo das costas / matar-se a trabalhar / fartar-se de trabalhar",
+            @"cabo|mat\w*-(?:me|te|se|nos)|mat\w*\s+a\s+trabalhar|fart\w*|esfor[cç]\w*|suad\w*|suor"),
+        I(@"bust(?:s|ed|ing)?\s+" + Own + @"\s+(?:chops|balls)|break(?:s|ing)?\s+" + Own + @"\s+balls", "bust my chops",
+            "chatear / pegar com alguém / moer o juízo",
+            @"chate\w*|peg\w*\s+com|mo\w*\s+o\s+juízo|impli\w*|goz\w*"),
+        I(@"piece\s+of\s+cake", "piece of cake", "canja / pera doce / facílimo", @"canja|pera\s+doce|fácil|facílim\w*|simples"),
+        I(@"break\s+a\s+leg", "break a leg", "boa sorte / muita merda (teatro)", @"sorte|merda"),
+        I(@"(?:cut|knock)\s+it\s+out|knock\s+it\s+off", "cut it out", "para com isso / chega / basta",
+            @"par[ae]m?\s+com|pára|chega|basta|acaba\w*"),
+        I(@"beats\s+me", "beats me", "sei lá / não faço ideia", @"sei\s+lá|ideia|sei"),
+        I(@"hang\s+in\s+there", "hang in there", "aguenta-te / aguenta firme", @"aguent\w*|for[cç]a|firme"),
+        I(@"(?:i'm|i\s+am)\s+all\s+ears", "I'm all ears", "sou todo ouvidos", @"ouvidos|ouvir|diz"),
+        I(@"on\s+the\s+house", "on the house", "é oferta da casa", @"casa|ofert\w*|grátis"),
+        I(@"(?:cost|costs|costing)\s+(?:me\s+|you\s+|us\s+|him\s+|her\s+|them\s+)?an\s+arm\s+and\s+a\s+leg", "an arm and a leg",
+            "custar os olhos da cara / uma fortuna", @"olhos\s+da\s+cara|fortuna|caríssim\w*|balúrdio|dinheirão"),
+        I(@"under\s+the\s+weather", "under the weather", "adoentado / indisposto", @"doente|indispost\w*|adoentad\w*|mal"),
+        I(@"spill(?:s|ed|ing)?\s+the\s+beans|let(?:s|ting)?\s+the\s+cat\s+out\s+of\s+the\s+bag", "spill the beans",
+            "dar com a língua nos dentes / contar tudo", @"língua|cont\w*|revel\w*|desembuch\w*|abr\w*\s+o\s+jogo"),
+        I(@"pull(?:s|ed|ing)?\s+(?:my|your|his|her|our|their)\s+leg", "pull my leg", "estar a gozar / estar a brincar",
+            @"goz\w*|brinc\w*|reinar"),
+        I(@"kick(?:s|ed|ing)?\s+the\s+bucket", "kick the bucket", "bater a bota / esticar o pernil", @"bota|pernil|morr\w*|falec\w*"),
+        I(@"hit(?:s|ting)?\s+the\s+(?:sack|hay)", "hit the sack", "ir para a cama / ir dormir", @"cama|dormir|deitar"),
+        I(@"call(?:s|ed|ing)?\s+it\s+a\s+(?:day|night)", "call it a day", "ficar por hoje / dar por encerrado",
+            @"por\s+(?:hoje|aqui)|encerr\w*|termin\w*|acab\w*"),
+        I(@"(?:not|n't)\s+(?:really\s+)?my\s+cup\s+of\s+tea", "not my cup of tea", "não é a minha praia / não é o meu género",
+            @"praia|onda|género|estilo|gost\w*|chávena"),
+        I(@"sleep\s+on\s+it", "sleep on it", "pensar melhor / consultar a almofada", @"almofada|pens\w*"),
+        I(@"(?:get|got|getting|have|having)\s+cold\s+feet", "cold feet", "acobardar-se / ficar com medo à última hora",
+            @"medo|cobard\w*|acobard\w*|recu\w*|desist\w*|hesit\w*|arrepend\w*"),
+        I(@"cover(?:s|ed|ing)?\s+" + Own + @"\s+(?:ass|butt|tail)", "cover my ass", "safar a pele / proteger-se",
+            @"pele|coiro|couro|saf\w*|proteg\w*|cobr\w*"),
+        I(@"in\s+a\s+nutshell", "in a nutshell", "em suma / resumindo", @"suma|resum\w*|poucas\s+palavras"),
+        I(@"ball(?:'s|\s+is)\s+in\s+your\s+court", "the ball is in your court", "agora a decisão é tua / agora é contigo",
+            @"decis\w*|contigo|consigo|depende|tua\s+vez|sua\s+vez"),
+        I(@"my\s+bad", "my bad", "a culpa é minha / foi engano meu", @"culpa|desculp\w*|err\w*|engan\w*|falha"),
+        I(@"hold\s+(?:your|ya)\s+horses", "hold your horses", "calma / tem calma", @"calma|devagar|espera\w*|acalm\w*"),
+        I(@"get\s+a\s+grip", "get a grip", "controla-te / tem juízo", @"control\w*|juízo|calma|recomp\w*|acalm\w*"),
+        I(@"jump(?:s|ed|ing)?\s+the\s+gun", "jump the gun", "precipitar-se", @"precipit\w*|cedo|apress\w*"),
+        I(@"out\s+of\s+the\s+blue", "out of the blue", "do nada / de repente", @"nada|repente|súbit\w*|inesperad\w*"),
+        I(@"rule\s+of\s+thumb", "rule of thumb", "regra geral", @"regra"),
+        I(@"(?:the\s+)?last\s+straw", "the last straw", "a gota de água / foi a gota que fez transbordar o copo",
+            @"gota|chega|limite|basta|copo"),
+        I(@"blow(?:s|ing)?\s+off\s+(?:some\s+)?steam|blew\s+off\s+(?:some\s+)?steam", "blow off steam", "desanuviar / descomprimir / desabafar",
+            @"desanuvi\w*|descompr\w*|desabaf\w*|relax\w*|vapor|espairec\w*"),
+        I(@"(?:on|walking\s+on)\s+thin\s+ice", "on thin ice", "em maus lençóis / a pisar terreno perigoso",
+            @"lençóis|perig\w*|arrisc\w*|fino|cuidado"),
+        I(@"bite\s+the\s+bullet", "bite the bullet", "aguentar / engolir em seco / enfrentar", @"aguent\w*|engol\w*|enfrent\w*|coragem"),
+        I(@"(?:throw|throws|threw|throwing|thrown)\s+\w+\s+under\s+the\s+bus", "throw someone under the bus",
+            "lixar alguém / atirar alguém às feras", @"feras|lix\w*|tram\w*|tra[ií]\w*|culp\w*|entreg\w*|sacrific\w*"),
+        I(@"a\s+dime\s+a\s+dozen", "a dime a dozen", "há aos pontapés / há muitos", @"pontapé\w*|monte|muit\w*|vulgar\w*|comu\w*"),
+        I(@"hit\s+the\s+road", "hit the road", "pôr-se a andar / ir embora", @"andar|embora|caminho|estrada|ir|vamos"),
+        I(@"bend(?:s|ing)?\s+over\s+backwards|bent\s+over\s+backwards", "bend over backwards", "fazer de tudo / desdobrar-se",
+            @"tudo|desdobr\w*|esfor[cç]\w*|imposs\w*"),
+        I(@"by\s+the\s+book", "by the book", "segundo as regras / à risca", @"regra\w*|livro|norma\w*|procediment\w*|manual|risca"),
+        I(@"off\s+the\s+record", "off the record", "em off / extraoficialmente / cá entre nós",
+            @"off|oficial\w*|entre\s+nós|confiden\w*|segredo"),
+        I(@"(?:a|it's\s+a)\s+long\s+shot", "a long shot", "uma hipótese remota / um tiro no escuro",
+            @"remot\w*|escuro|imprová\w*|difícil|arrisc\w*|hipótese"),
+        I(@"(?:you|ya)\s+bet(?![\p{L}])(?!\s+(?:on|that|your|my|the|a|it))", "you bet", "podes crer / claro", @"crer|claro|dúvida|certeza|pois"),
+        I(@"(?:no|not\s+a|not\s+such\s+a)\s+big\s+deal", "no big deal", "não tem importância / não é nada de especial",
+            @"importância|especial|nada|problema|grave|mal"),
+        I(@"(?:keep|kept|keeping)\s+(?:your|my|his|her|our|their)\s+chin\s+up", "keep your chin up", "anima-te / cabeça erguida",
+            @"anim\w*|erguid\w*|levantad\w*|força"),
+        I(@"(?:got|have|has|had)\s+(?:your|my|his|her|our|their)\s+back", "I've got your back", "estou contigo / podes contar comigo",
+            @"contigo|consigo|cont\w*\s+comigo|apoi\w*|protej\w*|proteg\w*|cobr\w*"),
+        I(@"(?:break|breaks|broke|breaking)\s+the\s+ice", "break the ice", "quebrar o gelo", @"gelo"),
+    };
+
+    public static string? Note(string text, string? english)
+    {
+        if (string.IsNullOrWhiteSpace(english)) return null;
+        var plain = ReferenceAligner.Clean(english);
+        var line = ReferenceAligner.Clean(text);
+        var notes = Idioms.Where(i => i.English.IsMatch(plain) && !i.Expected.IsMatch(line))
+            .Select(i => $"Hint: the English “{i.Name}” is an idiom - in PT-PT: {i.PtPt}.")
+            .Distinct()
+            .ToList();
+        return notes.Count == 0 ? null : string.Join("\n", notes);
+    }
+}
+
+/// <summary>Finds the English subtitle next to the subtitle or video, like Sub_sync: same name with a .en/.eng/.english tag.</summary>
+public static class ReferenceFinder
+{
+    private static readonly string[] English = { "english", "eng", "en", "en-us", "en-gb", "en_us", "en_gb" };
+    private static readonly string[] Tags =
+    {
+        "english", "eng", "en-us", "en-gb", "en_us", "en_gb", "en",
+        "portuguese", "português", "brazilian", "por", "pob", "pt-br", "pt_br", "ptbr", "pt-pt", "pt_pt", "pt", "br",
+        "hi", "sdh", "cc", "forced",
+    };
+    private static readonly Regex TrailingTag = new(
+        @"[._ \-]+\[?(?<tag>" + string.Join("|", Tags.OrderByDescending(t => t.Length).Select(Regex.Escape)) + @")\]?$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex Separators = new(@"[._\s\-\[\]()]+", RegexOptions.Compiled);
+    private static readonly Regex Episode = new(@"^(.*?\bs\d{1,2} ?e\d{1,3})\b", RegexOptions.Compiled);
+
+    /// <summary>Base name without language and HI/SDH tags (normalised), and whether a tag was English.</summary>
+    public static (string Base, bool English) Parse(string path)
+    {
+        var stem = Path.GetFileNameWithoutExtension(path);
+        var english = false;
+        for (var i = 0; i < 3; i++)
+        {
+            var match = TrailingTag.Match(stem);
+            if (!match.Success || match.Index == 0) break;
+            english |= English.Contains(match.Groups["tag"].Value.ToLowerInvariant());
+            stem = stem[..match.Index];
+        }
+        return (Separators.Replace(stem.ToLowerInvariant(), " ").Trim(), english);
+    }
+
+    /// <summary>
+    /// An English .srt with the same name as the subtitle or video; failing that, the only English .srt
+    /// of the same episode (e.g. "Show.S01E01.Pilot.English.srt" for "Show.S01E01.720p.pt-br.srt").
+    /// </summary>
+    public static string? Find(string? subtitlePath, string? videoPath)
+    {
+        var names = new[] { subtitlePath, videoPath }.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => Path.GetFullPath(p!)).ToList();
+        if (names.Count == 0) return null;
+        var bases = names.Select(p => Parse(p).Base).Where(b => b.Length > 0).ToHashSet();
+        var episodes = bases.Select(EpisodeKey).Where(e => e != null).ToHashSet();
+
+        var candidates = new List<(string Path, bool Exact)>();
+        foreach (var folder in names.Select(Path.GetDirectoryName).Distinct().Where(Directory.Exists))
+        {
+            IEnumerable<string> files;
+            try { files = Directory.EnumerateFiles(folder!, "*.srt").ToList(); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
+            foreach (var file in files)
+            {
+                if (names.Contains(Path.GetFullPath(file), StringComparer.Ordinal)) continue;
+                var (name, english) = Parse(file);
+                if (!english) continue;
+                if (bases.Contains(name)) candidates.Add((file, true));
+                else if (EpisodeKey(name) is { } key && episodes.Contains(key)) candidates.Add((file, false));
+            }
+        }
+
+        var exact = candidates.Where(c => c.Exact).Select(c => c.Path).Order(StringComparer.OrdinalIgnoreCase).ToList();
+        if (exact.Count > 0) return exact[0];
+        var sameEpisode = candidates.Select(c => c.Path).Distinct().ToList();
+        return sameEpisode.Count == 1 ? sameEpisode[0] : null;
+    }
+
+    private static string? EpisodeKey(string normalisedBase)
+    {
+        var match = Episode.Match(normalisedBase);
+        return match.Success ? match.Groups[1].Value.Replace(" e", "e") : null;
+    }
+}

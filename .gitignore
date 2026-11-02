@@ -1,0 +1,13 @@
+bin/
+obj/
+publish/
+staging/
+*.user
+.vs/
+
+# Subtitle files (never commit)
+*.srt
+*.ass
+*.ssa
+*.vtt
+*.sub
