@@ -232,6 +232,31 @@ public sealed class PortugueseConverter
         }
     }
 
+    internal static class MissingInfinitiveEnding
+    {
+        // Only unambiguous ir auxiliaries: "quero ajuda" is a noun, and "foi luta" may use ser.
+        private static readonly Regex Pattern = new(
+            NotWordBefore + @"(?<pre>(?:vou|vais|vai|vamos|vão|ia|ias|íamos|iam|irei|irás|irá|iremos|irão|iria|irias|iríamos|iriam)\s+" +
+            @"(?:(?:já|ainda|também|só|sempre|mesmo|realmente|agora|nunca|não|mais|me|te|se|lhe|lhes|nos|vos)\s+){0,3})" +
+            @"(?<verb>[\p{L}\p{M}]+)" + NotWordAfter, Ci);
+
+        public static string Apply(string text) => Pattern.Replace(text, m =>
+            PortugueseVerbs.TryRestoreInfinitiveEnding(m.Groups["verb"].Value, out var infinitive)
+                ? m.Groups["pre"].Value + infinitive
+                : m.Value);
+
+        public static IEnumerable<(string Phrase, string Correction)> Find(string text)
+        {
+            foreach (Match m in Pattern.Matches(text))
+            {
+                if (PortugueseVerbs.TryRestoreInfinitiveEnding(m.Groups["verb"].Value, out var infinitive))
+                {
+                    yield return (m.Value, m.Groups["pre"].Value + infinitive);
+                }
+            }
+        }
+    }
+
     // "Eu nunca sair da linha" is a bad translation: a subject needs a conjugated verb. The English reference gives the tense
     // ("I never stepped" → "Eu nunca saí", "I never step" → "Eu nunca saio"); without it the line is only flagged for review.
     internal static class BareInfinitive
@@ -531,6 +556,8 @@ public sealed class PortugueseConverter
         {
             s = ColloquialRules.Apply(s);
         }
+
+        s = MissingInfinitiveEnding.Apply(s);
 
         if (_options.Colloquial)
         {

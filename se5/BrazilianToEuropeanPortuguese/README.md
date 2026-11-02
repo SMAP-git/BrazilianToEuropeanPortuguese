@@ -349,6 +349,12 @@ Rules found by comparing the output against real PT-PT subtitles:
   Verb agreement uses the existing irregular table and dictionary-validated regular inflections, not a closed
   list of verbs. In a *que* clause with an auxiliary, dative clitics move before the auxiliary:
   *que vou facilitar para você* → *que te vou facilitar*.
+- A missing final *r* after an unambiguous *ir* auxiliary is repaired before conjugation and pronoun rules:
+  *Não vou fala mais com vocês* → *Não vou falar mais com vocês*, *vamos come* → *vamos comer*,
+  *vão parti* → *vão partir*. The restored infinitive must be in the verb list or validated by the
+  Portuguese dictionary. Short intervening adverbs/pronouns, case and line breaks are preserved;
+  *vai para casa*, *não vai nada*, *quero ajuda* and ambiguous *foi* constructions are not guessed.
+  The all-line grammar review uses the same rule to suggest the correction if an error remains.
 - When a rule leaves a pronoun, preposition or article at the end of a line, the line break moves so it stays with
   its word: *Disse que o João ligou / pra ele do hotel* → *Disse que o João / lhe ligou do hotel*, *Então disse pra
   ela / me encontrar* → *Então disse-lhe / para me encontrar*. The word normally moves down; words come up from the
@@ -529,7 +535,9 @@ Under **Extra checks** in the same section. They run after the rules, when the w
   the translation.* Cues much longer or shorter than the line (merged or split differently) are
   skipped. On a typical episode it flags about 2% of the lines, mostly idioms or slang translated
   literally. MiniLM compares meaning, not grammar (*Eu nunca
-  sair da linha* scores 0.88 against the English), so grammar errors are found by the rule above,
+  sair da linha* scores 0.88 against the English); *vou fala* can likewise retain the intended
+  meaning despite its missing infinitive ending. Vulkan accelerates the same model, not its grammar
+  detection. Grammar errors are handled by the conversion rules and the separate all-line grammar review,
   and MiniLM only flags: it cannot write a new translation. The English cue is shown next to the line.
 - **Gervásio PT-PT judge** (off by default; **Download Gervásio PT-PT (4.9 GB)**) uses
   [Gervásio 8B PT-PT](https://huggingface.co/PORTULAN/gervasio-8b-portuguese-ptpt-decoder), a

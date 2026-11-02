@@ -508,6 +508,27 @@ internal static class PortugueseVerbs
 
     public static bool IsKnownInfinitive(string word) => Infinitives.Contains(word.ToLowerInvariant());
 
+    internal static bool TryRestoreInfinitiveEnding(string word, out string infinitive)
+    {
+        infinitive = word;
+        var lower = word.ToLowerInvariant();
+        if (lower.Length < 3 || !"aei".Contains(lower[^1]) || lower == "que" || GuessStopWords.Contains(lower) ||
+            (char.IsUpper(word[0]) && !CaseHelper.IsAllUpper(word)))
+        {
+            return false;
+        }
+
+        var candidate = lower + "r";
+        if (!IsInfinitive(candidate) ||
+            (!IsKnownInfinitive(candidate) && !NaturaDictionary.Load(true).Check(candidate)))
+        {
+            return false;
+        }
+
+        infinitive = CaseHelper.MatchCase(word, candidate);
+        return true;
+    }
+
     /// <summary>"manterei" → ("manter", "ei"), "diria" → ("dir", "ia"); false when the word is not a known future/conditional.</summary>
     public static bool TrySplitFuture(string word, out string stem, out string ending, bool requireTransitive)
     {

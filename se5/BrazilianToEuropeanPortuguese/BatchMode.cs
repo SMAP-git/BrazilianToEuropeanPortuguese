@@ -81,7 +81,7 @@ public static class BatchMode
 
         if (grammar > 0)
         {
-            referenceNote += $" {grammar} line(s) with a verb left in the infinitive (e.g. “Eu nunca sair”) - open the plugin to review them.";
+            referenceNote += $" {grammar} line(s) with a verb-form or auxiliary construction to check - open the plugin to review them.";
         }
 
         referenceNote += Judge(blocks, checkLines, changesByLine, embedding);

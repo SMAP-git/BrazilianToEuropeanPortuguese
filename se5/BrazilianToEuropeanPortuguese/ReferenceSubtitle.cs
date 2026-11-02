@@ -465,8 +465,8 @@ public static class ReferenceReview
 }
 
 /// <summary>
-/// Ungrammatical Brazilian translations the rules cannot fix without knowing the tense: "Eu nunca sair" (infinitive after
-/// a subject) and "devia ter ser" (ter + infinitive). Checked on every line, changed or not. Nothing is changed here.
+/// Grammar errors, including a missing infinitive ending after ir and ambiguous tense or ter constructions.
+/// Checked on every line, changed or not. Nothing is changed here.
 /// </summary>
 public static class GrammarReview
 {
@@ -490,6 +490,11 @@ public static class GrammarReview
     {
         var plain = Regex.Replace(text, @"<[^<>]*>|\{[^{}]*\}", " ");
         var notes = new List<string>();
+        foreach (var (phrase, correction) in PortugueseConverter.MissingInfinitiveEnding.Find(plain))
+        {
+            notes.Add($"Review: “{phrase}” needs an infinitive after ir - use “{correction}”.");
+        }
+
         if (PortugueseConverter.BareInfinitive.Find(plain) is { } bare)
         {
             notes.Add($"Review: “{bare.Infinitive}” is in the infinitive after the subject - conjugate it: " +

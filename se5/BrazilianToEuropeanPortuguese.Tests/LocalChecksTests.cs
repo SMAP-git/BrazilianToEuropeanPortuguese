@@ -1,12 +1,13 @@
 using System.Text.Json;
 using SubtitleEdit.Plugins.BrazilianToEuropeanPortuguese;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace BrazilianToEuropeanPortuguese.Tests;
 
 // ReferenceTests changes XDG_DATA_HOME for the process; do not run beside it.
 [Collection("XdgDataHome")]
-public sealed class LocalChecksTests
+public sealed class LocalChecksTests(ITestOutputHelper output)
 {
     private static string[] Texts(string original, string converted) =>
         JudgeAlternatives.Generate(original, converted).Select(c => c.Text).ToArray();
@@ -88,5 +89,45 @@ public sealed class LocalChecksTests
         var (results, _) = await LocalChecks.RunAsync(lines, settings with { CheckMeaning = false }, new Progress<string>(_ => { }), CancellationToken.None);
         Assert.Equal("Ouvi dizer que o seu rapaz é o detetive chefe?", results[0].Text);
         Assert.False(results.ContainsKey(1));
+    }
+
+    [OptInFact("PTPT_TEST_VULKAN", "real MiniLM meaning review on a Vulkan GPU")]
+    public async Task MissingInfinitiveEndingKeepsMeaningOnVulkan()
+    {
+        var settings = EmbeddingAssets.WithInstalledFiles(new EmbeddingSettings(Vulkan: true,
+            Device: Environment.GetEnvironmentVariable("PTPT_VULKAN_DEVICE") ?? "Vulkan0"));
+        Assert.True(LocalChecks.MeaningReady(settings), "MiniLM and llama-server must be installed in the plugin's download folder.");
+        const string original = "Não vou fala mais com vocês.";
+        const string english = "I'm not going to talk to you anymore.";
+        var converted = new PortugueseConverter().Convert(original);
+        Assert.Equal("Não vou falar mais com vocês.", converted);
+        Assert.NotNull(GrammarReview.Note(original));
+        Assert.Null(GrammarReview.Note(converted));
+        Assert.True(LocalChecks.IsComparable(original, english));
+
+        await using (var runtime = await EmbeddingRuntime.StartAsync(settings, new Progress<string>(output.WriteLine), CancellationToken.None))
+        {
+            Assert.True(runtime.UsesGpu);
+            var before = await runtime.EmbedAsync(ReferenceAligner.Clean(original), CancellationToken.None);
+            var after = await runtime.EmbedAsync(ReferenceAligner.Clean(converted), CancellationToken.None);
+            var reference = await runtime.EmbedAsync(ReferenceAligner.Clean(english), CancellationToken.None);
+            var similarity = ReferenceAligner.Dot(before, after);
+            var beforeEnglish = ReferenceAligner.Dot(before, reference);
+            var afterEnglish = ReferenceAligner.Dot(after, reference);
+            output.WriteLine($"Original/corrected: {similarity:0.000}; original/English: {beforeEnglish:0.000}; corrected/English: {afterEnglish:0.000}");
+            Assert.True(similarity >= LocalChecks.MeaningThreshold);
+            Assert.True(afterEnglish >= LocalChecks.TranslationThreshold);
+            Assert.True(beforeEnglish - afterEnglish < LocalChecks.ReferenceDrop);
+        }
+
+        var lines = new[]
+        {
+            new CheckLine(0, original, converted, null, english),
+            new CheckLine(1, original, original, null, english),
+        };
+        var (results, summary) = await LocalChecks.RunAsync(lines, settings, new Progress<string>(output.WriteLine), CancellationToken.None);
+        Assert.Empty(results);
+        Assert.Contains("0 line(s) whose meaning may have changed", summary);
+        Assert.Contains("0 line(s) that may not match the English", summary);
     }
 }

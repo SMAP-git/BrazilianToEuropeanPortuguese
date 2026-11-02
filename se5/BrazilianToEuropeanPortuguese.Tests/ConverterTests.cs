@@ -1362,6 +1362,64 @@ public sealed class PluralTemTests
     }
 
     [Theory]
+    [InlineData("Não vou fala mais com vocês.", "Não vou falar mais com vocês.")]
+    [InlineData("Ele vai trabalha amanhã.", "Ele vai trabalhar amanhã.")]
+    [InlineData("Vamos come depois.", "Vamos comer depois.")]
+    [InlineData("Eles vão parti amanhã.", "Eles vão partir amanhã.")]
+    [InlineData("Ela ia fala comigo.", "Ela ia falar comigo.")]
+    [InlineData("Não vou mais fala com eles.", "Não vou mais falar com eles.")]
+    [InlineData("Não vais fala comigo.", "Não vais falar comigo.")]
+    [InlineData("Você vai fala comigo.", "Vais falar comigo.")]
+    [InlineData("Vou\nfala com eles.", "Vou\nfalar com eles.")]
+    [InlineData("<i>Não vou fala.</i>", "<i>Não vou falar.</i>")]
+    [InlineData("NÃO VOU FALA.", "NÃO VOU FALAR.")]
+    [InlineData("Vou questiona a decisão.", "Vou questionar a decisão.")]
+    [InlineData("Vou me lembra disso.", "Vou lembrar-me disso.")]
+    public void MissingInfinitiveEndingAfterIr(string br, string pt)
+    {
+        Assert.Equal(pt, Converter.Convert(br));
+        Assert.Equal(pt, Converter.Convert(br, null, ReferenceHint.FromText("I'm not going to talk to them anymore.")));
+        Assert.Equal(pt, Converter.Convert(pt));
+        Assert.NotNull(GrammarReview.Note(br));
+        Assert.Null(GrammarReview.Note(pt));
+    }
+
+    [Theory]
+    [InlineData("Vou falar com eles.")]
+    [InlineData("Ele fala comigo.")]
+    [InlineData("Não fala comigo.")]
+    [InlineData("Vai para casa.")]
+    [InlineData("Vou embora.")]
+    [InlineData("Não vai nada.")]
+    [InlineData("Vai fora de horas.")]
+    [InlineData("Vai que dá certo.")]
+    [InlineData("Vai Sara.")]
+    [InlineData("Vou a pé.")]
+    [InlineData("Vai, fala com eles.")]
+    [InlineData("Ela quer ajuda.")]
+    [InlineData("Foi luta até ao fim.")]
+    [InlineData("Vou xyzabcde.")]
+    [InlineData("Vou fala-lo.")]
+    [InlineData("Vai à luta.")]
+    public void MissingInfinitiveEndingDoesNotGuessOtherConstructions(string text)
+    {
+        Assert.Equal(text, PortugueseConverter.MissingInfinitiveEnding.Apply(text));
+        Assert.Empty(PortugueseConverter.MissingInfinitiveEnding.Find(text));
+        Assert.Null(GrammarReview.Note(text));
+    }
+
+    [Fact]
+    public void MissingInfinitiveEndingSharesRepairAndReview()
+    {
+        Assert.Contains("vou falar", GrammarReview.Note("Não vou fala mais com vocês.")!);
+        Assert.Contains("vou falar", GrammarReview.Note("<i>Não vou fala</i> mais com vocês.")!);
+        Assert.Null(GrammarReview.Note("Não vou falar mais com vocês."));
+        var local = new PortugueseLocalWordList();
+        local.Ignored.Add("fala");
+        Assert.Equal("Não vou fala mais com vocês.", new PortugueseConverter(localWordList: local).Convert("Não vou fala mais com vocês."));
+    }
+
+    [Theory]
     [InlineData("I never stepped out of bounds.", true, false)]
     [InlineData("He went home.", true, false)]
     [InlineData("I never do that.", false, true)]

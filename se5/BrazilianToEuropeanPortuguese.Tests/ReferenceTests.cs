@@ -293,7 +293,8 @@ public sealed class ReferenceTests(ITestOutputHelper output)
             Directory.CreateDirectory(data);
             File.WriteAllText(english, "1\n00:00:01,000 --> 00:00:04,000\nSo we got prints and his picture now.\n\n" +
                                        "2\n00:00:05,000 --> 00:00:07,000\nAre you okay?\n\n" +
-                                       "3\n00:00:08,000 --> 00:00:10,000\nWe need to talk to your husband. Is he home?\n");
+                                       "3\n00:00:08,000 --> 00:00:10,000\nWe need to talk to your husband. Is he home?\n\n" +
+                                       "4\n00:00:11,000 --> 00:00:13,000\nI'm not going to talk to you anymore.\n");
             var subtitle = Path.Combine(data, "episode.pt-br.srt");
             File.WriteAllText(subtitle, "");
             PluginBootstrap.BuildAvaloniaApp<App>().SetupWithoutStarting();
@@ -304,14 +305,15 @@ public sealed class ReferenceTests(ITestOutputHelper output)
                     Format = "SubRip",
                     FileName = subtitle,
                     SubRip = "1\n00:00:01,000 --> 00:00:04,000\nJá temos digitais e sua foto.\n\n2\n00:00:05,000 --> 00:00:07,000\nVocê está bem?\n\n" +
-                             "3\n00:00:08,000 --> 00:00:10,000\nPrecisamos falar com seu marido. Ele está em casa?\n",
+                             "3\n00:00:08,000 --> 00:00:10,000\nPrecisamos falar com seu marido. Ele está em casa?\n\n" +
+                             "4\n00:00:11,000 --> 00:00:13,000\nNão vou fala mais com vocês.\n",
                 },
             });
             Assert.Contains("a tua foto", window.Proposals[0].ConvertedText);
             Assert.Contains("MiniLM is not installed", window.ReferenceStatusText);
             Assert.Equal("Model: not downloaded\nllama-server: not downloaded\nGervásio: not downloaded", window.AssetStatusText);
             window.FindReferenceAutomatically().GetAwaiter().GetResult();
-            Assert.Equal(3, window.Alignment!.Matched);
+            Assert.Equal(4, window.Alignment!.Matched);
             Assert.Contains("a sua foto", window.Proposals[0].ConvertedText);
             Assert.Equal("EN: So we got prints and his picture now.", window.Proposals[0].ReferenceText);
             Assert.Equal("EN: Are you okay?", window.Proposals[1].ReferenceText);
@@ -319,7 +321,8 @@ public sealed class ReferenceTests(ITestOutputHelper output)
             Assert.True(review.IsChange);
             Assert.Contains("o seu marido", review.ConvertedText);
             Assert.Contains("keeps seu/sua", review.ReviewNote);
-            Assert.StartsWith("Reference matched 3 of 3", window.ReferenceStatusText);
+            Assert.Equal("Não vou falar mais com vocês.", window.Proposals.Single(p => p.LineIndex == 3).ConvertedText);
+            Assert.StartsWith("Reference matched 4 of 4", window.ReferenceStatusText);
             Assert.Contains("1 line(s) marked for review", window.ReferenceStatusText);
         }
         finally
