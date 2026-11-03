@@ -22,6 +22,12 @@
                                 after a determiner (a bota, o pulo) are treated as nouns and kept.
 -->
 <Words>
+  <Word br="retrato falado" pt="retrato-robô" />
+  <Word br="retratos falados" pt="retratos-robô" />
+  <Word br="trabalho de meio período" pt="trabalho a tempo parcial" />
+  <Word br="emprego de meio período" pt="emprego a tempo parcial" />
+  <Word br="trabalho de tempo integral" pt="trabalho a tempo inteiro" />
+  <Word br="emprego de tempo integral" pt="emprego a tempo inteiro" />
   <!-- ===================== Brazilian slang ===================== -->
   <Word br="dedo-duro" pt="bufo" />
   <Word br="dedos-duros" pt="bufos" />

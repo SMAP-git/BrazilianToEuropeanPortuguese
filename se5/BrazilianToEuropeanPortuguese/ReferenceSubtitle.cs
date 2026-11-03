@@ -12,13 +12,22 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
 {
     /// <summary>A nearby explicit form of address establishes a formal dialogue register.</summary>
     public bool FormalAddress { get; init; }
+    public bool ForceInformal { get; init; }
+    public bool IgnorePreviousAddress { get; init; }
     public bool InclusiveContinuation { get; init; }
     public bool CatchUpLater { get; init; }
+    internal bool RepeatedYouSubject { get; init; }
+    internal string? EnglishText { get; init; }
 
-    public static ReferenceHint? FromContext(IReadOnlyList<SrtBlock> source, int index, IReadOnlyList<string?>? english = null)
+    public static ReferenceHint? FromContext(IReadOnlyList<SrtBlock> source, int index, IReadOnlyList<string?>? english = null,
+        IReadOnlyList<string?>? speakers = null)
     {
         var hint = FromText(english?[index]);
-        if (index > 0 && source[index].StartMs - source[index - 1].EndMs <= 5000 &&
+        if (index > 0 && source[index].StartMs >= source[index - 1].StartMs &&
+            source[index].StartMs - source[index - 1].EndMs <= 5000 &&
+            !DialogueRegister.DifferentSpeaker(source[index - 1].Text, source[index].Text) &&
+            (speakers == null || string.IsNullOrWhiteSpace(speakers[index - 1]) || string.IsNullOrWhiteSpace(speakers[index]) ||
+             speakers[index - 1] == speakers[index]) &&
             Regex.IsMatch(source[index - 1].Text, @"(?<!\p{L})(?:a\s+gente|nós)\b", RegexOptions.IgnoreCase) &&
             Regex.IsMatch(source[index].Text, @"^\s*mas\s+nunca\s+(?:acha|pensa|imagina)\s+que\b", RegexOptions.IgnoreCase) &&
             (english == null || hint is { SecondPerson: true } &&
@@ -26,7 +35,7 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
         {
             hint = (hint ?? new ReferenceHint(false, false, false, false)) with { InclusiveContinuation = true };
         }
-        return DialogueRegister.IsFormal(source, index, english)
+        return DialogueRegister.IsFormal(source, index, english, speakers)
             ? (hint ?? new ReferenceHint(false, false, false, false)) with { FormalAddress = true }
             : hint;
     }
@@ -158,6 +167,10 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
         var secondPersonSubject = startsWithSecondPersonSubject || YouSubject.IsMatch(clean);
         return new ReferenceHint(second, secondOwn, third, thirdOwn)
         {
+            EnglishText = clean,
+            RepeatedYouSubject = Regex.IsMatch(clean,
+                @"\byou\s+(?:think|believe|know|hope|said|thought|knew|realized|realised|discovered)\s+(?:that\s+)?you\b",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant),
             Boy = boy && !kid,
             Girl = girl && !kid,
             Kid = kid,
@@ -188,23 +201,29 @@ internal static class DialogueRegister
     private static readonly Regex Informal = new(
         @"(?<![\p{L}\p{M}])(?:tu|teus?|tuas?|ti|contigo)(?![\p{L}\p{M}])", Ci);
 
-    internal static bool IsFormal(IReadOnlyList<SrtBlock> source, int index, IReadOnlyList<string?>? english = null)
+    internal static bool IsFormal(IReadOnlyList<SrtBlock> source, int index, IReadOnlyList<string?>? english = null,
+        IReadOnlyList<string?>? speakers = null)
     {
         if (Informal.IsMatch(Plain(source[index].Text))) return false;
         if (Address(index)) return true;
         foreach (var direction in new[] { -1, 1 })
         {
             var previous = index;
+            var speaker = speakers?[index]?.Trim() ?? SpeakerOf(source[index].Text);
             for (var distance = 1; distance <= 12; distance++)
             {
                 var candidate = index + direction * distance;
                 if (candidate < 0 || candidate >= source.Count) break;
                 var left = source[Math.Min(previous, candidate)];
                 var right = source[Math.Max(previous, candidate)];
-                if (right.StartMs - left.EndMs > 5000 ||
+                var candidateSpeaker = speakers?[candidate]?.Trim() ?? SpeakerOf(source[candidate].Text);
+                if (right.StartMs < left.StartMs || right.StartMs - left.EndMs > 5000 ||
+                    speaker.Length > 0 && candidateSpeaker.Length > 0 && speaker != candidateSpeaker ||
+                    DifferentSpeaker(left.Text, right.Text) ||
                     Math.Abs(source[candidate].StartMs - source[index].StartMs) > 30000 ||
                     Informal.IsMatch(Plain(source[candidate].Text))) break;
                 if (Address(candidate)) return true;
+                if (candidateSpeaker.Length > 0) speaker = candidateSpeaker;
                 previous = candidate;
             }
         }
@@ -215,6 +234,21 @@ internal static class DialogueRegister
     }
 
     private static string Plain(string text) => Regex.Replace(text, @"<[^<>]*>|\{[^{}]*\}", " ");
+
+    internal static bool DifferentSpeaker(string left, string right)
+    {
+        var a = SpeakerOf(left);
+        var b = SpeakerOf(right);
+        return a.Length > 0 && b.Length > 0 && a != b ||
+               Regex.Matches(Plain(left), @"(?m)^\s*[-–—]\s+").Count > 1 ||
+               Regex.Matches(Plain(right), @"(?m)^\s*[-–—]\s+").Count > 1;
+    }
+
+    private static string SpeakerOf(string text) =>
+        Regex.Match(Plain(text), @"^\s*(?<name>[\p{Lu}][\p{Lu}\d _'-]{1,35}):").Groups["name"].Value;
+
+    internal static bool ConflictingAddress(string text) =>
+        PortugueseAddress.IsMatch(Plain(text)) && Informal.IsMatch(Plain(text));
 }
 
 public sealed record TimeMap(double Scale, double OffsetMs)
@@ -567,10 +601,82 @@ public static class GrammarReview
         ["escrever"] = "escrito", ["abrir"] = "aberto", ["cobrir"] = "coberto", ["ganhar"] = "ganho", ["gastar"] = "gasto", ["pagar"] = "pago",
     };
 
+    private static readonly Regex ExplicitSubject = new(
+        @"(?:^|[.!?;]\s+)(?<subject>tu|nós|eles|elas)\s+(?:(?:não|já|sempre|nunca|também|ainda)\s+){0,2}(?<verb>\p{L}+)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    internal static readonly Dictionary<string, string[]> SingularPlural = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["sou"] = ["somos", "são"], ["é"] = ["somos", "são"], ["está"] = ["estamos", "estão"],
+        ["estou"] = ["estamos", "estão"], ["tenho"] = ["temos", "têm"], ["tem"] = ["temos", "têm"],
+        ["vai"] = ["vamos", "vão"], ["vou"] = ["vamos", "vão"], ["quer"] = ["queremos", "querem"],
+        ["quero"] = ["queremos", "querem"], ["pode"] = ["podemos", "podem"], ["posso"] = ["podemos", "podem"],
+        ["sabe"] = ["sabemos", "sabem"], ["sei"] = ["sabemos", "sabem"], ["faz"] = ["fazemos", "fazem"],
+        ["faço"] = ["fazemos", "fazem"], ["diz"] = ["dizemos", "dizem"], ["digo"] = ["dizemos", "dizem"],
+        ["foi"] = ["fomos", "foram"], ["estava"] = ["estávamos", "estavam"], ["tinha"] = ["tínhamos", "tinham"],
+    };
+    private static readonly Regex AttractedClitic = new(
+        @"(?<!\p{L})(?:não|nunca|já|também|sempre)\s+(?<verb>\p{L}+)-(?<clitic>me|te|se|nos|vos|lhe|lhes|o|a|os|as)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    private static readonly Regex GenderMismatch = new(
+        @"(?<!\p{L})(?:(?<f>a|uma|esta|essa|minha|tua)\s+(?<masc>frigorífico|casaco|autocarro|comboio|telemóvel|polícia)|" +
+        @"(?<m>o|um|este|esse|meu|teu)\s+(?<fem>equipa|violação|carrinha))\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
     public static string? Note(string text)
     {
         var plain = Regex.Replace(text, @"<[^<>]*>|\{[^{}]*\}", " ");
         var notes = new List<string>();
+        foreach (Match m in ExplicitSubject.Matches(plain))
+        {
+            var subject = m.Groups["subject"].Value;
+            var verb = m.Groups["verb"].Value;
+            string? expected = null;
+            if (subject.Equals("tu", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!PortugueseVerbs.IsKnownInfinitive(verb) && PortugueseVerbs.TryThirdToSecond(verb, out var second))
+                    expected = second;
+            }
+            else if (SingularPlural.TryGetValue(verb, out var plural))
+                expected = plural[subject.Equals("nós", StringComparison.OrdinalIgnoreCase) ? 0 : 1];
+            if (expected != null)
+                notes.Add($"Review: explicit subject “{subject}” disagrees with “{verb}”; check “{expected}”.");
+            else if (!subject.Equals("tu", StringComparison.OrdinalIgnoreCase) &&
+                     !PortugueseVerbs.IsKnownInfinitive(verb) &&
+                     (PortugueseVerbs.ThirdToSecond.ContainsKey(verb.ToLowerInvariant()) || PortugueseVerbs.IsSecondPersonForm(verb)))
+                notes.Add($"Review: explicit plural subject “{subject}” with singular verb “{verb}”; check plural conjugation.");
+        }
+        foreach (Match m in AttractedClitic.Matches(plain))
+        {
+            var verb = m.Groups["verb"].Value;
+            if (PortugueseVerbs.IsKnownVerbForm(verb) && !PortugueseVerbs.IsKnownInfinitive(verb))
+                notes.Add($"Review: “{m.Value}” has an attracting word; check pronoun placement before the finite verb.");
+        }
+        foreach (Match m in GenderMismatch.Matches(plain))
+        {
+            // Polícia is common-gender when it refers to an officer.
+            if (!m.Groups["masc"].Value.Equals("polícia", StringComparison.OrdinalIgnoreCase))
+                notes.Add($"Review: determiner/noun gender agreement in “{m.Value}”.");
+        }
+        foreach (Match m in Regex.Matches(plain,
+                     @"(?<!\p{L})(?<noun>frigoríficos?|casacos?|autocarros?|comboios?|telemóveis|telemóvel|equipas?|violações|violação|carrinhas?)\s+" +
+                     @"(?:está|estão|estava|estavam|é|são|era|eram|ficou|ficaram)\s+" +
+                     @"(?<adj>(?:velh|nov|vazi|chei|bonit|estragad|danificad|gast|pequen|cansad)[oa]s?)\b",
+                     RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            var noun = m.Groups["noun"].Value.ToLowerInvariant();
+            var adjective = m.Groups["adj"].Value.ToLowerInvariant();
+            var feminine = noun.StartsWith("equipa", StringComparison.Ordinal) || noun.StartsWith("viola", StringComparison.Ordinal) ||
+                           noun.StartsWith("carrinha", StringComparison.Ordinal);
+            var plural = noun.EndsWith('s');
+            var ending = (feminine ? "a" : "o") + (plural ? "s" : "");
+            if (!adjective.EndsWith(ending, StringComparison.Ordinal) || adjective.EndsWith('s') != plural)
+                notes.Add($"Review: noun/adjective agreement in “{m.Value}”.");
+        }
+        foreach (Match m in Regex.Matches(plain,
+                     @"(?:^|[.!?]\s+)(?:eu\s+)?(?<verb>gosto|gostas|gostamos|gostam|preciso|precisas|precisamos|precisam)\s+" +
+                     @"(?<object>o|a|os|as|um|uma|uns|umas)\s+(?!(?:pouco|bocado|bocadinho)\b)\p{L}+",
+                     RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            notes.Add($"Review: “{m.Value}” appears to omit the preposition de required by the verb.");
         foreach (var (phrase, correction) in PortugueseConverter.MissingInfinitiveEnding.Find(plain))
         {
             notes.Add($"Review: “{phrase}” needs an infinitive after ir - use “{correction}”.");

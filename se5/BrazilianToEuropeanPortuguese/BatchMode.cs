@@ -40,51 +40,50 @@ public static class BatchMode
 
         var blocks = SubRipParser.Parse(request.Subtitle.SubRip);
         var (alignment, referenceNote) = options.UseReference ? AlignReference(blocks, request.Subtitle.FileName, embedding) : (null, string.Empty);
-        var converter = new PortugueseConverter(options, localWordList);
+        var speakers = SubtitleConversion.Speakers(request, blocks, out var speakerNote);
+        if (speakerNote != null) referenceNote += " " + speakerNote;
+        var conversions = SubtitleConversion.Convert(blocks, options, localWordList, alignment?.Texts, speakers: speakers);
         var changesByLine = new Dictionary<int, string>();
         var checkLines = new List<CheckLine>();
-        var review = 0;
-        var idioms = 0;
-        var grammar = 0;
         for (var i = 0; i < blocks.Count; i++)
         {
-            var hint = ReferenceHint.FromContext(blocks, i, alignment?.Texts);
-            var changed = converter.TryConvert(blocks[i].Text, out var converted, i > 0 ? blocks[i - 1].Text : null, hint);
+            var converted = conversions[i].Text;
+            var changed = converted != blocks[i].Text;
             if (changed)
             {
                 changesByLine[i] = converted;
             }
             checkLines.Add(new CheckLine(i, blocks[i].Text, changed ? converted : blocks[i].Text,
                 i == 0 ? null : changesByLine.TryGetValue(i - 1, out var previous) ? previous : blocks[i - 1].Text, alignment?.Texts[i]));
-            if (ReferenceReview.Note(changed ? converted : blocks[i].Text, hint) != null)
-            {
-                review++;
-            }
-            if (GrammarReview.Note(changed ? converted : blocks[i].Text) != null)
-            {
-                grammar++;
-            }
-            if (IdiomHints.Note(changed ? converted : blocks[i].Text, alignment?.Texts[i]) != null)
-            {
-                idioms++;
-            }
-        }
-
-        if (alignment != null && review > 0)
-        {
-            referenceNote += $" {review} line(s) to review (English you/your kept as você/seu).";
-        }
-        if (idioms > 0)
-        {
-            referenceNote += $" {idioms} line(s) with an English idiom to check (open the plugin to see the PT-PT hints).";
-        }
-
-        if (grammar > 0)
-        {
-            referenceNote += $" {grammar} line(s) with a verb-form or auxiliary construction to check - open the plugin to review them.";
         }
 
         referenceNote += Judge(blocks, checkLines, changesByLine, embedding);
+        var review = 0;
+        var grammar = 0;
+        var idioms = 0;
+        var layout = 0;
+        var contextReview = 0;
+        for (var i = 0; i < blocks.Count; i++)
+        {
+            var final = changesByLine.TryGetValue(i, out var judged) ? judged : blocks[i].Text;
+            if (ReferenceReview.Note(final, conversions[i].Hint) != null) review++;
+            if (GrammarReview.Note(final) != null) grammar++;
+            if (IdiomHints.Note(final, alignment?.Texts[i]) != null) idioms++;
+            if (conversions[i].ContextNote != null) contextReview++;
+            final = SubtitleLayout.Rewrap(final, options);
+            if (SubtitleLayout.Review(final, blocks[i], options) != null) layout++;
+            if (final != blocks[i].Text) changesByLine[i] = final;
+            else changesByLine.Remove(i);
+        }
+        if (alignment != null && review > 0)
+            referenceNote += $" {review} line(s) to review (English you/your kept as você/seu).";
+        if (idioms > 0)
+            referenceNote += $" {idioms} line(s) with an English idiom to check (open the plugin to see the PT-PT hints).";
+        if (grammar > 0)
+            referenceNote += $" {grammar} line(s) with a verb-form or auxiliary construction to check - open the plugin to review them.";
+        if (layout > 0) referenceNote += $" {layout} line(s) with layout/reading-speed warnings (open the plugin for details).";
+        if (contextReview > 0) referenceNote += $" {contextReview} line(s) with address/sentence-context review notes.";
+        if (options.SentenceContext) referenceNote += " Sentence-context conversion enabled.";
 
         var validation = string.Empty;
         if (options.ValidateSpelling)

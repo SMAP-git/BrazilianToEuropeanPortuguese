@@ -6,8 +6,8 @@
         x:Class="SubtitleEdit.Plugins.BrazilianToEuropeanPortuguese.MainWindow"
         mc:Ignorable="d"
         Title="Brazilian to European Portuguese"
-        Width="760" Height="760"
-        MinWidth="500" MinHeight="560"
+        Width="1120" Height="760"
+        MinWidth="1000" MinHeight="560"
         WindowStartupLocation="CenterScreen">
     <DockPanel Margin="20">
 
@@ -74,6 +74,72 @@
             <CheckBox x:Name="YouToTuCheck" Content="você → tu"
                       ToolTip.Tip="você tem → tu tens, com você → contigo, para você → para ti (unknown verbs are left alone)" />
         </WrapPanel>
+
+        <Grid DockPanel.Dock="Top" x:Name="ReviewLayoutPanels" ColumnDefinitions="340,*" Margin="0,0,0,8">
+        <Expander Grid.Column="0" x:Name="ReviewTools" Header="Review tools"
+                  HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="0,0,12,0">
+            <StackPanel Spacing="6">
+                <ComboBox x:Name="DisableRuleChoice" HorizontalAlignment="Stretch"
+                          PlaceholderText="Choose a rule stage" />
+                <WrapPanel>
+                    <Button x:Name="DisableRuleButton" Content="Disable for this file" Click="OnDisableRule" Margin="0,0,8,6" />
+                    <Button x:Name="RestoreRulesButton" Content="Restore file rules" Click="OnRestoreRules" Margin="0,0,0,6" />
+                </WrapPanel>
+                <Button Content="Export reviewed corrections…" Click="OnExportCorrections" />
+                <TextBlock Text="Disabling a stage recomputes the file. Export contains Portuguese text; review for personal information before sharing."
+                           TextWrapping="Wrap" Opacity="0.7" />
+            </StackPanel>
+        </Expander>
+        <Expander Grid.Column="1" x:Name="LayoutTools" Header="Dialogue context and subtitle layout"
+                  HorizontalAlignment="Stretch" VerticalAlignment="Top">
+            <StackPanel Spacing="6">
+                <WrapPanel>
+                    <TextBlock Text="Address:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <ComboBox x:Name="AddressChoice" SelectedIndex="0" SelectionChanged="OnOrthographyChanged">
+                        <ComboBoxItem Content="Automatic (context safeguards)" />
+                        <ComboBoxItem Content="Informal tu (manual override)" />
+                        <ComboBoxItem Content="Formal (manual override)" />
+                    </ComboBox>
+                </WrapPanel>
+                <CheckBox x:Name="ConversationalCheck"
+                          IsCheckedChanged="OnOptionChanged"
+                          ToolTip.Tip="Paraphrases supported future mesoclisis with ir + infinitive and omits clearly noncontrastive eu/nós. Formal address, conditionals and ambiguous subjects are preserved.">
+                    <TextBlock Text="Conversational PT-PT style (optional, off by default)" TextWrapping="Wrap" />
+                </CheckBox>
+                <CheckBox x:Name="SentenceContextCheck"
+                          IsCheckedChanged="OnOptionChanged"
+                          ToolTip.Tip="Only short, unformatted continuations without speaker markers. Timings stay unchanged; coupled changes are accepted/rejected together.">
+                    <TextBlock Text="Convert complete sentences across adjacent cues (optional)" TextWrapping="Wrap" />
+                </CheckBox>
+                <CheckBox x:Name="RewrapCheck" Content="Rewrap within each cue (optional)" IsCheckedChanged="OnOptionChanged"
+                          ToolTip.Tip="Avoids dangling articles, clitics and auxiliary/infinitive breaks where possible. Tagged text and dialogue markers are not rewrapped." />
+                <WrapPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,12,6">
+                        <TextBlock Text="Characters/line:" VerticalAlignment="Center" />
+                        <NumericUpDown x:Name="LineLength" Minimum="20" Maximum="100" Value="43" Width="130" Margin="6,0,0,0"
+                                       ValueChanged="OnLayoutChanged" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,12,6">
+                        <TextBlock Text="Max lines:" VerticalAlignment="Center" />
+                        <NumericUpDown x:Name="MaxLines" Minimum="1" Maximum="4" Value="2" Width="110" Margin="6,0,0,0"
+                                       ValueChanged="OnLayoutChanged" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <TextBlock Text="Warning CPS:" VerticalAlignment="Center" />
+                        <NumericUpDown x:Name="CharactersPerSecond" Minimum="5" Maximum="60" Value="20" Width="130" Margin="6,0,0,0"
+                                       ValueChanged="OnLayoutChanged" />
+                    </StackPanel>
+                </WrapPanel>
+                <CheckBox x:Name="LayoutWarningsCheck"
+                          IsCheckedChanged="OnOptionChanged"
+                          ToolTip.Tip="Off by default. These warnings do not indicate a translation or grammar error. Language and meaning warnings remain enabled.">
+                    <TextBlock Text="Show layout and reading-speed warnings (optional)" TextWrapping="Wrap" />
+                </CheckBox>
+                <TextBlock Text="Timings never change. An infeasible wrap is kept rather than forced; enable layout warnings to flag it."
+                           TextWrapping="Wrap" Opacity="0.7" />
+            </StackPanel>
+        </Expander>
+        </Grid>
 
         <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
             <TextBlock Text="Orthography:" VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -186,7 +252,7 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="local:ChangeProposal">
                         <Border BorderBrush="#22808080" BorderThickness="0,0,0,1" Padding="8,6">
-                        <Grid ColumnDefinitions="32,42,*">
+                        <Grid ColumnDefinitions="32,42,*,300">
                             <CheckBox Grid.Column="0"
                                       IsChecked="{Binding Include, Mode=TwoWay}"
                                       IsVisible="{Binding IsChange}"
@@ -198,7 +264,7 @@
                                        FontSize="12"
                                        Margin="6,2,8,0"
                                        VerticalAlignment="Top" />
-                            <StackPanel Grid.Column="2" Orientation="Vertical" Spacing="2">
+                            <StackPanel Grid.Column="2" Orientation="Vertical" Spacing="2" Margin="0,0,12,0">
                                 <TextBlock Text="{Binding OriginalText}"
                                            IsVisible="{Binding IsChange}"
                                            TextWrapping="Wrap"
@@ -218,7 +284,19 @@
                                            TextWrapping="Wrap"
                                            Foreground="#E0A030"
                                            FontSize="12" />
+                                <CheckBox Content="Include layout change" IsVisible="{Binding HasLayoutChange}"
+                                          IsChecked="{Binding IncludeLayout, Mode=TwoWay}" />
                             </StackPanel>
+                                <Expander Grid.Column="3" Header="Rules and regression export"
+                                          HorizontalAlignment="Stretch" VerticalAlignment="Top">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{Binding Explanation}" IsVisible="{Binding HasExplanation}"
+                                                   TextWrapping="Wrap" FontSize="12" Opacity="0.7" />
+                                        <TextBlock Text="Expected PT-PT for export only (does not edit the applied subtitle):"
+                                                   TextWrapping="Wrap" FontSize="12" />
+                                        <TextBox Text="{Binding ExpectedText, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Expander>
                         </Grid>
                         </Border>
                     </DataTemplate>

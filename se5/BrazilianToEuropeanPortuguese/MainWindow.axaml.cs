@@ -12,6 +12,7 @@ using System.IO;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json;
 
 namespace SubtitleEdit.Plugins.BrazilianToEuropeanPortuguese;
 
@@ -62,6 +63,18 @@ public partial class MainWindow : Window
     private CheckBox _judgeCheck = null!;
     private readonly List<CheckLine> _checkLines = new();
     private readonly Dictionary<(string Original, string Converted), CheckResult> _checks = new();
+    private ComboBox _addressChoice = null!;
+    private CheckBox _sentenceContextCheck = null!;
+    private CheckBox _rewrapCheck = null!;
+    private CheckBox _conversationalCheck = null!;
+    private CheckBox _layoutWarningsCheck = null!;
+    private NumericUpDown _lineLength = null!;
+    private NumericUpDown _maxLines = null!;
+    private NumericUpDown _charactersPerSecond = null!;
+    private ComboBox _disableRuleChoice = null!;
+    private readonly HashSet<string> _disabledForFile = new(StringComparer.Ordinal);
+    private string _savedDisabledRules = "";
+    private bool _syncingSentence;
 
     public MainWindow() : this(new PluginRequest()) { }
 
@@ -93,7 +106,18 @@ public partial class MainWindow : Window
         _youToTuCheck.IsChecked == true,
         _orthographyChoice.SelectedIndex == 0,
         _validateSpellingCheck.IsChecked == true,
-        _batchReferenceCheck.IsChecked != false);
+        _batchReferenceCheck.IsChecked != false,
+        (AddressMode)Math.Max(0, _addressChoice.SelectedIndex),
+        _sentenceContextCheck.IsChecked == true,
+        _rewrapCheck.IsChecked == true,
+        (int)(_lineLength.Value ?? 43),
+        (int)(_maxLines.Value ?? 2),
+        (int)(_charactersPerSecond.Value ?? 20),
+        string.Join(",", new[] { _savedDisabledRules }.Concat(_disabledForFile).Where(s => s.Length > 0)),
+        _conversationalCheck.IsChecked == true,
+        _layoutWarningsCheck.IsChecked == true);
+
+    private ConversionOptions SavedOptions => Options with { DisabledRules = _savedDisabledRules };
 
     private IEnumerable<CheckBox> OptionChecks =>
         new[] { _spellingCheck, _vocabularyCheck, _progressiveCheck, _pronounsCheck, _colloquialCheck, _youToTuCheck };
@@ -110,6 +134,15 @@ public partial class MainWindow : Window
         _orthographyChoice.SelectedIndex = options.PostAgreement ? 0 : 1;
         _validateSpellingCheck.IsChecked = options.ValidateSpelling;
         _batchReferenceCheck.IsChecked = options.UseReference;
+        _addressChoice.SelectedIndex = (int)options.Address;
+        _sentenceContextCheck.IsChecked = options.SentenceContext;
+        _rewrapCheck.IsChecked = options.Rewrap;
+        _conversationalCheck.IsChecked = options.Conversational;
+        _layoutWarningsCheck.IsChecked = options.LayoutWarnings;
+        _lineLength.Value = options.LineLength;
+        _maxLines.Value = options.MaxLines;
+        _charactersPerSecond.Value = options.CharactersPerSecond;
+        _savedDisabledRules = options.DisabledRules;
         _loadingOptions = false;
 
         foreach (var check in OptionChecks)
@@ -128,6 +161,8 @@ public partial class MainWindow : Window
 
     private void OnOrthographyChanged(object? sender, SelectionChangedEventArgs e) =>
         OnOptionChanged(sender, e);
+
+    private void OnLayoutChanged(object? sender, NumericUpDownValueChangedEventArgs e) => OnOptionChanged(sender, e);
 
     private async void OnCheckDictionary(object? sender, RoutedEventArgs e) => await UpdateDictionary(false);
     private async void OnDownloadDictionary(object? sender, RoutedEventArgs e) => await UpdateDictionary(true);
@@ -160,6 +195,8 @@ public partial class MainWindow : Window
     /// <summary>Opened from Batch convert's Configure button: choose the rule groups, edit the local word list.</summary>
     private void ShowConfigure()
     {
+        this.FindControl<Expander>("ReviewTools")!.IsVisible = false;
+        this.FindControl<Grid>("ReviewLayoutPanels")!.ColumnDefinitions[0].Width = new GridLength(0);
         Title = $"{BatchMode.Name} - Batch convert settings";
         _selectButtons.IsVisible = false;
         _referencePathRow.IsVisible = false;
@@ -265,6 +302,15 @@ public partial class MainWindow : Window
         _referenceCancelButton = this.FindControl<Button>("ReferenceCancelButton")!;
         _meaningCheck = this.FindControl<CheckBox>("MeaningCheck")!;
         _judgeCheck = this.FindControl<CheckBox>("JudgeCheck")!;
+        _addressChoice = this.FindControl<ComboBox>("AddressChoice")!;
+        _sentenceContextCheck = this.FindControl<CheckBox>("SentenceContextCheck")!;
+        _rewrapCheck = this.FindControl<CheckBox>("RewrapCheck")!;
+        _conversationalCheck = this.FindControl<CheckBox>("ConversationalCheck")!;
+        _layoutWarningsCheck = this.FindControl<CheckBox>("LayoutWarningsCheck")!;
+        _lineLength = this.FindControl<NumericUpDown>("LineLength")!;
+        _maxLines = this.FindControl<NumericUpDown>("MaxLines")!;
+        _charactersPerSecond = this.FindControl<NumericUpDown>("CharactersPerSecond")!;
+        _disableRuleChoice = this.FindControl<ComboBox>("DisableRuleChoice")!;
         _referenceButtons = new Control[]
         {
             this.FindControl<Button>("ReferenceBrowseButton")!, this.FindControl<Button>("ReferenceClearButton")!,
@@ -327,9 +373,11 @@ public partial class MainWindow : Window
 
     private void BuildProposals(PortugueseLocalWordList? localWordList)
     {
-        var converter = new PortugueseConverter(Options, localWordList);
         var selected = new HashSet<int>(_request.SelectedIndices);
         var applyToAll = selected.Count == 0;
+        var speakers = SubtitleConversion.Speakers(_request, _blocks, out var speakerNote);
+        if (speakerNote != null) _subtitleLabel.Text += " " + speakerNote;
+        var conversions = SubtitleConversion.Convert(_blocks, Options, localWordList, _alignment?.Texts, selected, speakers);
         var convertedLines = new Dictionary<int, string>();
         _checkLines.Clear();
 
@@ -341,39 +389,100 @@ public partial class MainWindow : Window
             }
 
             var reference = _alignment?.Texts[i];
-            var hint = ReferenceHint.FromContext(_blocks, i, _alignment?.Texts);
-            var changed = converter.TryConvert(_blocks[i].Text, out var converted, i > 0 ? _blocks[i - 1].Text : null, hint);
-            var text = changed ? converted : _blocks[i].Text;
-            var review = string.Join("\n", new[] { ReferenceReview.Note(text, hint), GrammarReview.Note(text), IdiomHints.Note(text, reference) }.Where(n => n != null));
-            if (review.Length == 0) review = null;
+            var hint = conversions[i].Hint;
+            var text = conversions[i].Text;
+            var reviewNotes = new List<string?> { conversions[i].ContextNote };
+            var rules = conversions[i].Rules.ToList();
             var previous = i == 0 ? null : convertedLines.TryGetValue(i - 1, out var before) ? before : _blocks[i - 1].Text;
             convertedLines[i] = text;
             _checkLines.Add(new CheckLine(i, _blocks[i].Text, text, previous, reference));
             if (_checks.TryGetValue((_blocks[i].Text, text), out var check))
             {
+                if (check.Text != text) rules.Add(new RuleChange("local-judge", "Gervásio chose a fixed alternative", "Local model ranking; see review note"));
                 text = check.Text;
-                if (check.Note != null) review = review == null ? check.Note : review + "\n" + check.Note;
+                reviewNotes.Add(check.Note);
             }
-            if (text != _blocks[i].Text || review != null)
+            var wrapped = SubtitleLayout.Rewrap(text, Options);
+            reviewNotes.AddRange(new[] { ReferenceReview.Note(text, hint), GrammarReview.Note(text),
+                IdiomHints.Note(text, reference) });
+            var review = string.Join("\n", reviewNotes.Where(n => !string.IsNullOrWhiteSpace(n)).Distinct());
+            var wrappedReview = SubtitleLayout.Review(wrapped, _blocks[i], Options);
+            var languageReview = SubtitleLayout.Review(text, _blocks[i], Options);
+            if (wrapped != text) rules.Add(new RuleChange("rewrap", "Optional grammar-aware layout (timings unchanged)"));
+            if (text != _blocks[i].Text || wrapped != text || review.Length > 0 || wrappedReview != null)
             {
-                _proposals.Add(new ChangeProposal(i, _blocks[i].Text, text, reference, review));
+                _proposals.Add(new ChangeProposal(i, _blocks[i].Text, text, reference, review,
+                    rules, wrapped, conversions[i].SentenceGroup, wrappedReview, languageReview));
             }
         }
+        _disableRuleChoice.ItemsSource = _proposals.SelectMany(p => p.Rules).Where(r => r.Id != "local-judge")
+            .Select(r => r.Id).Distinct().OrderBy(s => s).ToArray();
+        _disableRuleChoice.SelectedIndex = -1;
     }
 
     private void OnProposalChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(ChangeProposal.Include))
         {
+            if (!_syncingSentence && sender is ChangeProposal { SentenceGroup: >= 0 } changed)
+            {
+                _syncingSentence = true;
+                foreach (var peer in _proposals.Where(p => p.SentenceGroup == changed.SentenceGroup && p.IsChange))
+                    peer.Include = changed.Include;
+                _syncingSentence = false;
+            }
             UpdateSummary();
             if (Options.ValidateSpelling) _dictionaryStatus.Text = ValidationSummary();
+        }
+        if (e.PropertyName == nameof(ChangeProposal.IncludeLayout))
+        {
+            UpdateSummary();
+            if (Options.ValidateSpelling) _dictionaryStatus.Text = ValidationSummary();
+        }
+    }
+
+    private void OnDisableRule(object? sender, RoutedEventArgs e)
+    {
+        if (_disableRuleChoice.SelectedItem is not string rule) return;
+        _disabledForFile.Add(rule);
+        _checks.Clear();
+        RefreshProposals();
+        _subtitleLabel.Text += $" Disabled for this file: {string.Join(", ", _disabledForFile)}.";
+    }
+
+    private void OnRestoreRules(object? sender, RoutedEventArgs e)
+    {
+        _disabledForFile.Clear();
+        _checks.Clear();
+        RefreshProposals();
+    }
+
+    private async void OnExportCorrections(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Export reviewed corrections (Portuguese text may contain personal information)",
+                SuggestedFileName = "ptpt-regressions.json",
+                FileTypeChoices = new[] { new FilePickerFileType("JSON") { Patterns = new[] { "*.json" } } },
+            });
+            if (file == null) return;
+            await using var stream = await file.OpenWriteAsync();
+            stream.SetLength(0);
+            await JsonSerializer.SerializeAsync(stream, CorrectionExport.Create(_proposals), new JsonSerializerOptions { WriteIndented = true });
+            _subtitleLabel.Text = "Corrections exported. No filenames, timestamps or English reference text were included.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            _subtitleLabel.Text = $"Correction export failed: {ex.Message}";
         }
     }
 
     private void UpdateSummary()
     {
         var total = _proposals.Count(p => p.IsChange);
-        var selected = _proposals.Count(p => p.Include);
+        var selected = _proposals.Count(p => p.Include && p.ConvertedText != p.OriginalText);
         var review = _proposals.Count(p => p.HasReview);
         _summaryLabel.Text = $"{selected} of {total} change(s) selected." + (review > 0 ? $" {review} to review." : string.Empty);
         _applyButton.IsEnabled = selected > 0;
@@ -720,7 +829,7 @@ public partial class MainWindow : Window
     {
         if (_isConfigure)
         {
-            App.Response = BatchMode.BuildConfigureResponse(Options);
+            App.Response = BatchMode.BuildConfigureResponse(SavedOptions);
             Close();
             return;
         }
@@ -728,7 +837,7 @@ public partial class MainWindow : Window
         try
         {
             var changesByLine = _proposals
-                .Where(p => p.Include)
+                .Where(p => p.Include && p.ConvertedText != p.OriginalText)
                 .ToDictionary(p => p.LineIndex, p => p.ConvertedText);
 
             if (changesByLine.Count == 0)
@@ -738,7 +847,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            App.Response = BatchMode.BuildOkResponse(_blocks, changesByLine, Options);
+            App.Response = BatchMode.BuildOkResponse(_blocks, changesByLine, SavedOptions);
         }
         catch (Exception ex)
         {

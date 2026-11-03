@@ -380,7 +380,14 @@ public sealed class PortugueseConverter
         }
     }
 
-    public string Convert(string text, string? previousText = null, ReferenceHint? reference = null)
+    public string Convert(string text, string? previousText = null, ReferenceHint? reference = null,
+        ICollection<RuleChange>? trace = null) => ConvertCore(text, previousText, reference, trace, false);
+
+    internal string ConvertContinuation(string text, string? previousText, ReferenceHint? reference,
+        ICollection<RuleChange> trace) => ConvertCore(text, previousText, reference, trace, true);
+
+    private string ConvertCore(string text, string? previousText, ReferenceHint? reference,
+        ICollection<RuleChange>? trace, bool protectOutputs)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -392,7 +399,7 @@ public sealed class PortugueseConverter
         var current = text;
         for (var pass = 0; pass < MaxPasses; pass++)
         {
-            var next = ConvertOnce(current, previousText, reference, laterPass: pass > 0);
+            var next = ConvertOnce(current, previousText, reference, laterPass: pass > 0 || protectOutputs, trace);
             if (string.Equals(next, current, StringComparison.Ordinal))
             {
                 break;
@@ -401,7 +408,10 @@ public sealed class PortugueseConverter
             current = next;
         }
 
-        return BalanceLineBreaks(text, RestoreLineBreaks(text, current));
+        var restored = RestoreLineBreaks(text, current);
+        var balanced = _options.RuleEnabled("line-break-repair") ? BalanceLineBreaks(text, restored) : restored;
+        if (balanced != current) trace?.Add(new RuleChange("line-break-repair", "Restore/balance original line breaks"));
+        return balanced;
     }
 
     private const int MaxLineLength = 43;
@@ -547,10 +557,27 @@ public sealed class PortugueseConverter
 
     private const int MaxPasses = 4;
 
-    private string ConvertOnce(string text, string? previousText, ReferenceHint? reference, bool laterPass)
+    private string ConvertOnce(string text, string? previousText, ReferenceHint? reference, bool laterPass,
+        ICollection<RuleChange>? trace)
     {
         var masks = new List<string>();
         var s = Mask(text, masks, laterPass);
+        var checkpoint = s;
+        void Track(string id, string description)
+        {
+            if (!_options.RuleEnabled(id)) s = checkpoint;
+            else if (s != checkpoint)
+                trace?.Add(new RuleChange(id, description, id switch
+                {
+                    "missing-infinitive" => "Dictionary-validated",
+                    "word-list" or "orthography" => "Dictionary/rule-based",
+                    "address" or "context-phrases" or "inclusive-hearing" or "verb-vocabulary" or "reference-clitics" or
+                    "construction-vocabulary" or "subject-continuity" or "reference-idioms" =>
+                        "Context-sensitive; reference-assisted when available",
+                    _ => "Rule-based",
+                }));
+            checkpoint = s;
+        }
         if (_options.Colloquial && reference is { InclusiveContinuation: true })
         {
             s = InclusiveContinuation.Replace(s, m =>
@@ -587,7 +614,9 @@ public sealed class PortugueseConverter
             }
         }
 
+        Track("context-phrases", "Context/relative-clause and colloquial phrases");
         s = MissingInfinitiveEnding.Apply(s);
+        Track("missing-infinitive", "Dictionary-validated infinitive after ir");
 
         if (_options.Colloquial)
         {
@@ -601,21 +630,41 @@ public sealed class PortugueseConverter
         {
             s = HearingVocabulary.Apply(s, reference is { HearAbout: true });
         }
+        Track("inclusive-hearing", "Inclusive nós and hearing vocabulary");
+
+        var informalConstructions = _options.YouToTu && (reference is { ForceInformal: true } ||
+            reference is not { FormalAddress: true } && !YouToTuRules.IsFormal(s));
+        s = ClothingConstructions.PeopleAndClothes(s, reference, _options.Vocabulary, _options.Pronouns);
+        Track("clothing-complements", "Person-to-ground and owner-aware clothing complements");
+        if (_options.Pronouns) s = ConversionConstructions.Government(s);
+        Track("verb-government", "Recollection and dating complements");
+        if (_options.Vocabulary)
+            s = ConversionConstructions.Vocabulary(s, _options.Pronouns, informalConstructions);
+        Track("construction-vocabulary", "Complement-qualified vocabulary senses");
+        if (_options.YouToTu) s = ConversionConstructions.PersonalInfinitives(s, informalConstructions);
+        Track("personal-infinitives", "Explicit-subject personal infinitives");
+        if (informalConstructions) s = ConversionConstructions.Clauses(s, reference);
+        Track("subject-continuity", "Controlled and reference-confirmed clause subjects");
+        if (_options.Colloquial && _options.Vocabulary) s = ConversionConstructions.Idioms(s, reference);
+        Track("reference-idioms", "Literal Portuguese idioms confirmed by aligned English");
 
         if (_options.YouToTu)
         {
             s = YouToTuRules.Apply(s, previousText, reference);
         }
+        Track("address", "Address, conjugation and possessives");
 
         if (_options.Progressive)
         {
             s = ProgressiveRules.Apply(s);
         }
+        Track("progressive", "Progressive construction");
 
         if (_options.Pronouns)
         {
             s = PronounRules.Apply(s);
         }
+        Track("pronouns", "Pronoun placement");
 
         if (_options.Vocabulary)
         {
@@ -641,11 +690,13 @@ public sealed class PortugueseConverter
                     ? ReplaceYoungPerson(m, reference)
                     : m.Value);
         }
+        Track("verb-vocabulary", "Contextual vocabulary and verb inflections");
 
         if (_wordRegex != null)
         {
             s = _wordRegex.Replace(s, ReplaceWord);
         }
+        if (_options.Vocabulary) s = ClothingConstructions.PluralUnderwear(s);
 
         if (_distantAgreementRegex != null)
         {
@@ -653,6 +704,7 @@ public sealed class PortugueseConverter
                 m.Groups["n"].Value + m.Groups["pre"].Value + Regex.Replace(m.Groups["chain"].Value, @"[\p{L}]+",
                     a => NotAgreeing.Contains(a.Value) ? a.Value : SwapAdjectiveGender(a.Value, _changedGender[m.Groups["n"].Value])));
         }
+        Track("word-list", "Word-list spelling/vocabulary and gender agreement");
 
         if (_options.Pronouns)
         {
@@ -663,6 +715,7 @@ public sealed class PortugueseConverter
         {
             s = NearDemonstrative.Replace(s, m => CaseHelper.MatchCase(m.Value, NearDemonstratives[m.Value]));
         }
+        Track("reference-clitics", "Future-subjunctive clitics and reference demonstratives");
 
         if (_options.Progressive && _wordRegex != null)
         {
@@ -672,8 +725,10 @@ public sealed class PortugueseConverter
 
         if (_options.YouToTu)
         {
-            s = TuImperative.Apply(s, previousText, reference is { FormalAddress: true });
+            s = TuImperative.Apply(s, reference is { IgnorePreviousAddress: true } ? null : previousText,
+                reference is { FormalAddress: true }, reference is { ForceInformal: true });
         }
+        Track("progressive-command", "Progressive follow-up and imperative address");
 
         if (_options.Progressive)
         {
@@ -685,6 +740,12 @@ public sealed class PortugueseConverter
             s = PronominalVerbs.Apply(s, _options.YouToTu && reference is not { FormalAddress: true });
             s = CliticAllomorphs.Apply(s);
         }
+        Track("reflexive-clitics", "Reflexives and clitic allomorphs");
+
+        if (_options.Vocabulary && _options.Pronouns) s = ConversionConstructions.Complaints(s, informalConstructions);
+        Track("construction-vocabulary", "Complement-qualified vocabulary senses");
+        if (_options.Conversational) s = ConversionConstructions.Conversational(s, reference);
+        Track("conversational-style", "Optional future paraphrase and noncontrastive subject omission");
 
         if (_prefixRegex != null)
         {
@@ -696,6 +757,7 @@ public sealed class PortugueseConverter
             s = SpellingRules.Apply(s);
             s = PortugueseOrthography.Apply(s, _options.PostAgreement);
         }
+        Track("orthography", "Prefixes and selected Portuguese orthography");
 
         s = DoubledWords.Apply(s);
         s = UntilContraction.Apply(s);
@@ -703,6 +765,8 @@ public sealed class PortugueseConverter
         {
             s = BareInfinitive.Apply(s, reference.Past);
         }
+        s = AutomaticGrammar.Apply(s, _options);
+        Track("final-grammar", "Agreement, ordinal/preposition cleanup and reference-guided finite verb");
 
         return Unmask(s, masks);
     }
@@ -2303,7 +2367,7 @@ public sealed class PortugueseConverter
             var explicitAddressee = ExplicitAddressee.IsMatch(s);
             // "Está bem?" next to "Is he okay?": the dropped subject is not "você".
             var droppedYou = reference is not { ExcludesDroppedYou: true };
-            if (IsFormal(s) || reference is { FormalAddress: true })
+            if (reference is not { ForceInformal: true } && (IsFormal(s) || reference is { FormalAddress: true }))
             {
                 return ApplyFormal(s);
             }
@@ -2317,7 +2381,7 @@ public sealed class PortugueseConverter
                     return m.Value;
                 }
 
-                var personal = inf.Equals("pôr", StringComparison.OrdinalIgnoreCase) ? "pores" : inf + (CaseHelper.IsAllUpper(inf) ? "ES" : "es");
+                var personal = PortugueseVerbs.PersonalInfinitive(inf, "es");
                 return m.Groups["pre"].Value + personal;
             });
             s = Contigo.Replace(s, m => CaseHelper.MatchCase(m.Value, "contigo"));
@@ -3873,7 +3937,7 @@ public sealed class PortugueseConverter
         /// Brazilian commands use the "você" form ("Coloque", "Escute"); Portugal mostly says them in the "tu" form, the same as
         /// every "você" the converter turns into "tu". Formal lines (and lines after a formal one) keep the "você" form.
         /// </summary>
-        public static string Apply(string s, string? previousText = null, bool formalContext = false) =>
+        public static string Apply(string s, string? previousText = null, bool formalContext = false, bool forceInformal = false) =>
             Sentence.Replace(s, sentence =>
             {
                 var text = sentence.Value;
@@ -3890,8 +3954,8 @@ public sealed class PortugueseConverter
                 var marked = TuMarker.IsMatch(text);
                 if (!marked)
                 {
-                    if (YouToTuRules.IsFormal(text) || previousText != null && YouToTuRules.IsFormal(previousText) ||
-                        FormalMarker.IsMatch(text) || PoliteRequest.IsMatch(text) || TitleMarker.IsMatch(s))
+                    if (!forceInformal && (YouToTuRules.IsFormal(text) || previousText != null && YouToTuRules.IsFormal(previousText) ||
+                        FormalMarker.IsMatch(text) || PoliteRequest.IsMatch(text) || TitleMarker.IsMatch(s)))
                     {
                         return text;
                     }
@@ -3900,8 +3964,8 @@ public sealed class PortugueseConverter
                 var negative = NegativeCommand.Match(text);
                 if (negative.Success)
                 {
-                    if (YouToTuRules.IsFormal(text) || previousText != null && YouToTuRules.IsFormal(previousText) ||
-                        FormalMarker.IsMatch(text) || PoliteRequest.IsMatch(text) || TitleMarker.IsMatch(s))
+                    if (!forceInformal && (YouToTuRules.IsFormal(text) || previousText != null && YouToTuRules.IsFormal(previousText) ||
+                        FormalMarker.IsMatch(text) || PoliteRequest.IsMatch(text) || TitleMarker.IsMatch(s)))
                     {
                         return text;
                     }
@@ -4082,6 +4146,24 @@ public sealed class PortugueseConverter
                 foreach (var f in forms) map[f] = p;
             }
 
+            foreach (var infinitive in new[] { "lembrar", "esquecer" })
+            {
+                if (!VerbConjugator.TryConjugate(infinitive, out var paradigm))
+                    throw new InvalidOperationException($"Cannot conjugate {infinitive}.");
+                for (var i = 0; i < paradigm.Length; i++)
+                {
+                    if (i is 35 or 36 or 37 or 38) continue;
+                    map[paradigm[i]] = i switch
+                    {
+                        1 or 6 or 14 => Person.First,
+                        2 or 7 or 11 or 15 or 20 or 24 or 28 or 31 or 40 => Person.Second,
+                        4 or 12 or 17 or 21 or 25 or 29 or 32 or 41 or 42 => Person.FirstPlural,
+                        0 or 10 or 19 or 23 or 27 or 34 or 39 => Person.Ambiguous,
+                        _ => Person.Third,
+                    };
+                }
+            }
+
             Add(Person.First, "lembro", "lembrei", "esqueço", "esqueci");
             Add(Person.Second, "lembras", "lembraste", "lembravas", "lembres", "esqueces", "esqueceste", "esquecias", "esqueças");
             Add(Person.Third, "lembra", "lembrou", "lembram", "lembraram", "lembravam", "lembrem",
@@ -4196,7 +4278,15 @@ public sealed class PortugueseConverter
             }
             else if (person == Person.Ambiguous)
             {
-                person = words.Any(w => w.Equals("eu", StringComparison.OrdinalIgnoreCase)) ? Person.First : Person.Third;
+                var subject = words.LastOrDefault(w => w.ToLowerInvariant() is "eu" or "tu" or "você" or "nós" or "ele" or "ela" or "eles" or "elas");
+                person = subject?.ToLowerInvariant() switch
+                {
+                    "eu" => Person.First, "tu" => Person.Second, "você" when !formal => Person.Second, "nós" => Person.FirstPlural,
+                    null when previous?.ToLowerInvariant() is "vou" or "posso" or "quero" => Person.First,
+                    null when previous?.ToLowerInvariant() is "vamos" or "podemos" or "queremos" => Person.FirstPlural,
+                    null when !formal && previous?.ToLowerInvariant() is "vais" or "podes" or "queres" => Person.Second,
+                    _ => Person.Third,
+                };
             }
 
             var clitic = person switch { Person.First => "me", Person.Second => "te", Person.FirstPlural => "nos", _ => "se" };
@@ -4213,7 +4303,7 @@ public sealed class PortugueseConverter
                 return clitic + " " + form;
             }
 
-            return PortugueseVerbs.AttachEnclitic(form, clitic);
+            return PortugueseVerbs.AttachMesoclitic(form, clitic, false) ?? PortugueseVerbs.AttachEnclitic(form, clitic);
         }
     }
 

@@ -503,10 +503,21 @@ internal static class PortugueseVerbs
     // Only real infinitives: "queriam" (imperfect of querer) must not split into "quer" + "iam".
     private static readonly HashSet<string> Infinitives = new(
         RegularAr.Concat(RegularEr).Concat(RegularIr).Concat(TransitiveInfinitives).Concat(ExtraMesoclisisInfinitives)
-            .Concat(new[] { "ter", "ver", "ser", "pôr", "por", "vir", "ir", "sair", "cair", "trair", "ouvir", "pedir", "sentir", "dormir", "seguir" }),
+            .Concat(new[] { "ter", "ver", "ser", "pôr", "por", "vir", "ir", "sair", "cair", "trair", "ouvir", "pedir", "sentir", "dormir", "seguir",
+                "tornar", "queixar", "esquecer" }),
         StringComparer.Ordinal);
 
     public static bool IsKnownInfinitive(string word) => Infinitives.Contains(word.ToLowerInvariant());
+
+    internal static string PersonalInfinitive(string infinitive, string ending)
+    {
+        var lower = infinitive.ToLowerInvariant();
+        var stem = lower == "pôr" ? "por" : lower;
+        if (ending is "es" or "em" && (lower.EndsWith("air", StringComparison.Ordinal) ||
+            lower.EndsWith("uir", StringComparison.Ordinal) && !lower.EndsWith("guir", StringComparison.Ordinal)))
+            stem = stem[..^2] + "ír";
+        return CaseHelper.MatchCase(infinitive, stem + ending);
+    }
 
     internal static bool TryRestoreInfinitiveEnding(string word, out string infinitive)
     {

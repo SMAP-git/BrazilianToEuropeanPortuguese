@@ -44,13 +44,16 @@ Further vocabulary includes *entrevista coletiva* → *conferência de imprensa*
 
 Machine-translated comparisons are suggestions, not authoritative corrections.
 Names, demonstratives (*isso/isto*, *esse/este*), and formal/informal address require
-context; the converter does not reproduce Google's blanket changes or redistribute
-text between subtitle cues. These offline comparisons do not train a model or send
+context; the converter does not reproduce Google's blanket changes. Redistribution
+between adjacent cues is only available through the optional sentence-context mode
+described below. These offline comparisons do not train a model or send
 subtitle contents to an external service.
 
 Each group can be switched on or off with the check boxes at the top of the window.
 Subtitle Edit remembers the choice, and Batch convert uses it too. HTML tags (`<i>`), ASSA tags (`{\an8}`)
-and line breaks are never touched.
+and formatting tags are preserved. By default the number of internal line breaks is
+preserved, with small repairs to avoid dangling clitics/prepositions. Full rewrapping
+and cross-cue sentence processing are separate opt-in settings.
 
 ### Orthography and Natura dictionaries
 
@@ -120,7 +123,108 @@ Its original notice is copied into `Dictionaries/Hunspell-license.txt` in builds
 The library remains a separate replaceable assembly; its source is available at
 the linked project. No AMALIA or other language model is integrated.
 
+### Complement-aware conversion
+
+These rules change Portuguese constructions, rather than merely adding review warnings:
+
+- **Verb government:** recollection with *o que/isso/isto/aquilo* and reviewed memory
+  objects (*nome, data, número, morada…*) gets *de* and the appropriate reflexive:
+  *Você lembra o que aconteceu?* → *Lembras-te do que aconteceu?*,
+  *Eu lembro o nome* → *Eu lembro-me do nome*. Recollection/forgetting with *de*
+  now covers infinitives, personal infinitives, future and conditional as well as
+  the existing present/past forms. *Esqueci de te ligar* → *Esqueci-me de te ligar*.
+  *Namorar* followed directly by a person pronoun gets its complement:
+  *Ela está namorando ele* → *Ela está a namorar com ele*. Valid noun objects
+  (*namoraste um polícia*), *Esqueci o nome*, resemblance (*Ele lembra o pai*)
+  and *confiar em mim* are not blanket-rewritten.
+- **Clause agreement:** an explicit informal *você/tu* with a reviewed controlling
+  verb and modal/action question can carry its person into the complement:
+  *Você acha que pode resolver isso?* → *Achas que podes resolver isso?*.
+  Supported *se você …-sse, …-ria* pairs also carry the subject:
+  *Se você soubesse, teria contado* → *Se soubesses, terias contado*.
+  An explicit different subject or impersonal *se* blocks this propagation.
+  Ambiguous reported clauses need repeated English subject evidence:
+  *Você disse que não queria sair* becomes *Disseste que não querias sair*
+  only when the reference confirms *You said you didn't want to leave*.
+  Without that evidence, the embedded third-person form stays.
+- **Vocabulary by complement:** *virar médico/amigo/problema…* → *tornar-se…*,
+  *encarar o problema/a verdade…* → *enfrentar…*, but *encarar você* →
+  *olhar fixamente para ti*. Person pickup at a reviewed place uses *buscar*:
+  *Vou pegar você na estação* → *Vou buscar-te à estação*.
+  *Curtir o filme/esta música…* → *gostar do filme/desta música…*;
+  *reclamar de…* → *queixar-se de…*; reviewed food subjects with *gostoso/a*
+  become *saboroso/a*. These families share inflection tables; turning a corner,
+  tanning leather, claiming an inheritance and descriptions of attractive people
+  are not indiscriminately changed. The existing progressive treatment remains
+  active before the complaint vocabulary conversion.
+- **Personal infinitives:** explicit subjects after *para, sem, antes de, depois de,
+  apesar de, em vez de…* and supported evaluative phrases now allow intervening
+  negation/adverbs/clitics: *É melhor você não contar* → *É melhor não contares*,
+  *Depois de você se vestir* → *Depois de te vestires*.
+  Plural subjects are supported, and vowel hiatus is retained (*saíres, saírem,
+  construírem*, but *sairmos*). *Eu/ele* and formal address are not changed into
+  informal second person; coordinated subjects are not inferred.
+- **Conversational PT-PT style:** a separate optional checkbox, **off by default**,
+  shared by preview and batch settings (`conversational: true`). Supported future
+  mesoclisis becomes same-person *ir + infinitive*: *Manter-te-ei* →
+  *Vou manter-te*, *Fá-lo-ei* → *Vou fazê-lo*, *Dar-te-emos* → *Vamos dar-te*.
+  Clearly noncontrastive, sentence-initial *eu/nós* with unambiguous reviewed
+  morphology can be omitted (*Eu estou pronto* → *Estou pronto*).
+  Formal address, conditionals, ambiguous forms (*Eu estava*, *Eu disse*) and
+  contrast/emphasis markers keep their wording. This is not a blanket
+  future/conditional simplifier or subject-removal pass.
+- **Reference-confirmed idioms:** automatic conversion requires both a matching
+  Portuguese construction and the aligned English expression. Supported families:
+  *custar um braço e uma perna* → *custar os olhos da cara*,
+  *Estou todo ouvidos* → *Sou todo ouvidos*, *É por conta da casa* →
+  *É oferta da casa*, *derramar os feijões* → *contar tudo*, and
+  *uma vez numa lua azul* → *muito de vez em quando*. Concrete spill contexts
+  are excluded. No reference, unrelated English or an absent Portuguese
+  construction means no automatic idiom replacement.
+
+New changes appear in the rule explanations and can be disabled by stage.
+The normal Vocabulary, Pronoun placement, Colloquial and address switches still
+gate the related construction families. These are bounded, regression-tested
+rules, not a general Portuguese parser or a guarantee of meaning preservation
+for every unseen sentence. No remote model is used.
+
 ### Grammar and vocabulary limitations
+
+Underwear is adapted to PT-PT plural *cuecas*, including singular BR *calcinha/cueca*,
+nearby feminine articles/possessives and reviewed adjectives/copulas:
+*a minha calcinha branca* → *as minhas cuecas brancas*,
+*a cueca está limpa* → *as cuecas estão limpas*. *Cueca boxer* retains the existing
+*boxers* conversion.
+Clothing removal with an explicit owner uses a dative:
+*tirou a camisa dela* → *tirou-lhe a camisa*.
+Ambiguous *seu/sua* requires aligned English ownership evidence; a short coordinated
+removal can carry that owner to the next clothing object. The reported cue thus uses
+*tirou-lhe os jeans e arrancou-lhe as cuecas*. Without ownership evidence the plugin
+does not assume whose clothing it is.
+For body-part impacts, reviewed *acertar + artigo + parte do corpo* uses the PT-PT
+preposition: *acertares a cabeça do outro tipo* → *acertares na cabeça do outro tipo*.
+Person owners are supported; mechanical heads (*a cabeça do parafuso*) are kept.
+*Jogar ele/ela no chão* becomes *mandá-lo/mandá-la para o chão* with the original
+tense/person; object throwing stays unchanged. A clitic object needs English evidence
+that it refers to a person on the ground. These changes respect Vocabulary/Pronoun
+placement switches and expose a `clothing-complements` trace stage.
+
+The final grammar stage now automatically repairs reviewed ordinal/event constructions:
+*Já é o segunda de estupro* → *Já é a segunda violação*. This covers first through
+tenth, singular/plural, reviewed event nouns and determiner/ordinal gender, including
+already-converted *violação*. It preserves *segunda de manhã*, ordinal partitives
+such as *a segunda de várias visitas*, and uncertain nouns.
+Reviewed explicit plural-subject disagreements (*Eles não pode* → *Eles não podem*,
+*Nós chegou* → *Nós chegámos*) and missing *de* before supported *gostar/precisar*
+objects are corrected, rather than only flagged. Ambiguous *ter + infinitive* still
+needs review: it might need a participle or *de*, so the plugin does not guess.
+Additional recurring gaps include *retrato falado* → *retrato-robô*, employment
+*trabalho de meio período* → *trabalho a tempo parcial*, temporal *é tudo por hora*
+→ *é tudo por agora* (hourly rates stay unchanged), *venha a mente* → *venha à mente*,
+*está a frente* → *está à frente*, *pelo o que* → *pelo que*, *um ideia* → *uma ideia*,
+and *todo dinheiro/sentido/tempo* → *todo o dinheiro/sentido/tempo*.
+These repairs respect the relevant Vocabulary/Colloquial groups and `final-grammar`
+stage suppression; they do not infer arbitrary translations.
 
 Pronoun placement handles supported sentence-initial reflexive commands:
 *Se afaste* → *Afaste-se*, *Se afastem* → *Afastem-se*, *Se sente* →
@@ -147,8 +251,10 @@ following sending/returning-belongings statement. In that context,
 phrase handles *enviei/entreguei/devolvi*. The added recipient *lhe* is an
 inference restricted to this pattern, so it still needs review.
 Other ambiguous possessives retain the existing *teu/tua* default. Context does
-not mutate other cues or persist between files. Speaker changes and distant
-antecedents are not resolved by a language model.
+not persist between files. Explicit speaker labels and multi-speaker cues now bound
+the register search; unlabelled speaker identity and distant antecedents are not
+reliably resolved. The optional sentence mode can redistribute a correction within
+a short continuation, but never changes timestamps.
 
 Progressive conversion also handles short cue-initial continuations with *e/ou*:
 *E me divorciando do cretino* → *E a divorciar-me do cretino*,
@@ -409,7 +515,7 @@ Rules found by comparing the output against real PT-PT subtitles:
   casa dele?* → *A invadir a casa dele?*). Adverbial gerunds that are also normal in Portugal (*Tendo em
   conta…*, *…, dizendo que…*) are kept.
 - *de boa* → *na boa* only at the end of a phrase (*Estou de boa.*), not in *o tipo de boa vizinha*.
-- A rule never merges the two lines of a subtitle: if a change joins words across the line break
+- In the default layout mode a rule never merges the two lines of a subtitle: if a change joins words across the line break
   (*por\nque* → *porque*), the line break is put back at the closest space.
 - Deliberately left alone because the meaning depends on context: *curtir*, *virar*, *reclamar*,
   *gostoso*, *encarar*, some uses of *pegar*, *sinto muito*.
@@ -425,6 +531,79 @@ The conversion is rule- and dictionary-based, so **always review the preview**.
 - Adjective agreement after a gender change covers the determiner, common adjectives and
   participles next to the noun (or after *é/foi/está…*); after a comma only with a modifier
   such as *meio/muito/tão*, so *…, cara* is never touched.
+
+## Dialogue context, grammar review and layout
+
+**Dialogue context and subtitle layout** exposes the same settings in preview and
+Batch convert:
+
+In the preview, this panel sits beside **Review tools**. Numeric fields reserve
+space for both the value and increment/decrement buttons; each label stays with
+its field when the row wraps. Batch configuration uses the full panel width.
+
+- **Automatic address** (default) uses the existing bounded formal-address evidence:
+  at most 12 nearby cues, 30 seconds from the current cue, and no gap above 5 seconds.
+  Explicit informal evidence, different known speaker labels (even with unlabelled
+  cues between them), multi-speaker cues and backwards timings stop the search.
+  Subtitle Edit actor metadata is also used when its paragraphs match the cue count
+  and timings; mismatched metadata is ignored with an explicit status note.
+  Conflicting formal/informal evidence in a cue withholds automatic address changes
+  and adds a review note. An inferred subject/register without an aligned English cue
+  is identified as an inference, not presented as proven speaker identity.
+- **Informal tu** and **Formal** are manual overrides for adaptation from Brazilian
+  address. Formal preserves polite commands and formal pronouns; it is not a blanket
+  reverse conversion of every existing *tu* in an already-European subtitle.
+- **Convert complete sentences across adjacent cues** is off by default. It handles
+  up to three short cues, with gaps no greater than 1.5 seconds and a lowercase
+  continuation, without final sentence punctuation, formatting tags or speaker
+  markers. For example, *Não vou* / *fala mais.* becomes *Não vou* / *falar mais.*.
+  It retains per-cue corrections, protects words already output by the converter,
+  and maps edits monotonically back to non-empty cues. Unsafe/oversized mappings are
+  skipped and reported. It never changes timestamps or joins unrelated speakers.
+  In preview, coupled sentence edits are accepted/rejected together. With a selection,
+  all participating cues must be selected.
+- The final **grammar review** runs on the output, including existing Gervásio
+  choices, and covers additional explicit subject/verb mismatches, supported
+  determiner/noun and noun/adjective agreement, attracting words before enclitics,
+  and narrowly supported missing-*de* constructions. The existing infinitive and
+  auxiliary checks remain. These are conservative pattern checks with counterexamples,
+  not a full grammatical parser: ambiguous tense, ownership and government remain
+  review-only. MiniLM continues to check meaning, not grammar.
+- **Rewrap within each cue** is off by default. Defaults are **43 visible
+  characters/line**, **at most 2 lines**, and a warning above **20 characters/second**.
+  These limits are configurable. The wrapper prefers boundaries that do not split
+  articles/clitics from following words, supported auxiliaries from infinitives or
+  consecutive capitalized name parts. Tags, ASS formatting and speaker-marker cues
+  are not rewrapped. An infeasible wrap is kept and flagged instead of truncating text.
+  **Show layout and reading-speed warnings** is a separate option, **off by default**
+  (`layoutWarnings: true` enables it in saved preview/batch settings). Old settings
+  without this field also default to off. It controls layout-only review rows and
+  layout notes/counts, not language/meaning warnings or conversion rules.
+  When enabled, warnings apply even when rewrapping is off; zero/negative
+  durations are reported. **Include layout change** lets you reject a wrap while
+  retaining the language correction, and the displayed warnings update accordingly.
+
+**Review tools** adds:
+
+- Expand **Rules and regression export** to the right of a row's original/converted
+  text to see the stages that changed it,
+  including dictionary-validated versus context-sensitive evidence. These are stage
+  explanations, not numeric confidence scores or one identifier for every regex.
+  Existing Gervásio choices are identified separately.
+- **Disable for this file** suppresses a selected conversion stage and recomputes the
+  proposals. **Restore file rules** clears these temporary suppressions. They are not
+  saved into Batch convert settings. Mandatory restoration of lost original line breaks
+  remains; disabling `line-break-repair` only disables the additional balancing.
+- **Export reviewed corrections** writes a versioned JSON object with `cases`
+  containing `original`, `expected`, `rules` and `sentenceGroup`. Edit **Expected
+  PT-PT for export only** to capture a manually reviewed correction; this field does
+  not alter the applied subtitle. The export omits filenames, timestamps and English
+  reference text. Portuguese dialogue can still contain personal information:
+  review it before sharing. No export is uploaded automatically. Reference-dependent
+  cases still need their context reconstructed when made into automated tests.
+
+These improvements run offline and add no Ollama, LM Studio or other remote review
+integration.
 
 ## Local word list
 
@@ -602,6 +781,10 @@ Supports Subtitle Edit's **Batch convert** (Tools → Batch convert → Run plug
 - During the batch, every line is converted with those settings and the local word list, without
   showing the window. Files with nothing to convert are left as they are. If the local word list
   can't be read, the file fails with an error rather than being converted without it.
+- Address overrides, optional conversational style, sentence context and layout limits are shared with preview.
+  The status counts grammar, address/sentence-context and layout/reading-speed warnings.
+  Batch mode applies enabled changes without interactive acceptance, so review a preview
+  before enabling cross-cue conversion for a large batch.
 - **English reference:** with **Use the English subtitle next to each file** ticked (the default),
   each file uses its English .srt (same name with .en/.eng/.english, or the only English .srt of the
   same SxxEyy), exactly like the window. The MiniLM, Vulkan GPU and device choices and the two
@@ -630,6 +813,24 @@ CI does: remove `runtime`/`entry` and add `"executables": { "windows": "Brazilia
 ```
 dotnet test ../BrazilianToEuropeanPortuguese.Tests
 ```
+
+`QualityTests` includes an invented 30-case benchmark covering police, family,
+comedy, formal dialogue and preservation of correct PT-PT. It measures wrong
+automatic changes, missed changes and preservation failures, and checks idempotence
+for those cases. Separate counterexamples cover grammar, speaker boundaries, cue
+selection, formatting, mapping, exact layout/CPS limits and batch/preview parity.
+The native preview test also exercises grouped acceptance and temporary stage
+disabling (`PTPT_TEST_UI=1 xvfb-run -a dotnet test ...` on Linux).
+`ConstructionTests` checks the six conversion-focused families with exact outputs,
+second-pass stability, inflections, negative examples, reference/formality guards,
+settings serialization and rule-group/stage suppression. The native preview test
+also verifies that conversational style is initially off and recomputes proposals
+when toggled.
+
+This is a regression benchmark, not a measured accuracy claim on arbitrary episodes.
+Existing ambiguous variant collisions such as *fato* (suit/fact) and *apelido*
+(surname/nickname) can still prevent blanket idempotence without sufficient context.
+The protected continuation pass does not reinterpret those freshly converted outputs.
 
 ## CI builds
 

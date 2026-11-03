@@ -1,4 +1,6 @@
 using System.Text;
+using Avalonia.Controls;
+using Avalonia.VisualTree;
 using SubtitleEdit.Plugins.BrazilianToEuropeanPortuguese;
 using SubtitleEdit.Plugins.Shared;
 using Xunit.Abstractions;
@@ -472,6 +474,109 @@ public sealed class ReferenceTests(ITestOutputHelper output)
             formalWindow.FindReferenceAutomatically().GetAwaiter().GetResult();
             Assert.Equal(3, formalWindow.Alignment!.Matched);
             Assert.DoesNotContain(formalWindow.Proposals, p => p.LineIndex == 0 && p.IsChange);
+
+            var qualityOptions = new ConversionOptions(SentenceContext: true, Rewrap: true, LineLength: 30, YouToTu: false,
+                UseReference: false);
+            var qualityWindow = new MainWindow(new PluginRequest
+            {
+                Settings = qualityOptions.ToJson(), SettingsVersion = ConversionOptions.Version,
+                Subtitle = new PluginSubtitle
+                {
+                    Format = "SubRip",
+                    SubRip = "1\n00:00:01,000 --> 00:00:03,000\nEstou no trem e não vou\n\n" +
+                             "2\n00:00:03,100 --> 00:00:05,000\nfala mais.\n\n" +
+                             "3\n00:00:08,000 --> 00:00:12,000\nVou falar com o diretor amanhã de manhã.\n",
+                },
+            });
+            var first = qualityWindow.Proposals.Single(p => p.LineIndex == 0);
+            var second = qualityWindow.Proposals.Single(p => p.LineIndex == 1);
+            Assert.Equal("falar mais.", second.ConvertedText);
+            first.Include = false;
+            Assert.False(second.Include);
+            second.Include = true;
+            Assert.True(first.Include);
+            var layout = qualityWindow.Proposals.Single(p => p.LineIndex == 2);
+            Assert.True(layout.HasLayoutChange);
+            layout.IncludeLayout = false;
+            Assert.Equal("Vou falar com o diretor amanhã de manhã.", layout.ConvertedText);
+            var choice = qualityWindow.FindControl<Avalonia.Controls.ComboBox>("DisableRuleChoice")!;
+            choice.SelectedItem = "word-list";
+            qualityWindow.FindControl<Avalonia.Controls.Button>("DisableRuleButton")!
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+            Assert.Contains("trem", qualityWindow.Proposals.Single(p => p.LineIndex == 0).ConvertedText);
+            Assert.DoesNotContain(qualityWindow.Proposals.SelectMany(p => p.Rules), r => r.Id == "word-list");
+            qualityWindow.FindControl<Avalonia.Controls.Button>("RestoreRulesButton")!
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+            Assert.Contains("comboio", qualityWindow.Proposals.Single(p => p.LineIndex == 0).ConvertedText);
+
+            var styleWindow = new MainWindow(new PluginRequest
+            {
+                SettingsVersion = ConversionOptions.Version,
+                Settings = new ConversionOptions(UseReference: false).ToJson(),
+                Subtitle = new PluginSubtitle
+                {
+                    Format = "SubRip",
+                    SubRip = "1\n00:00:01,000 --> 00:00:04,000\nEu estou pronto.\n",
+                },
+            });
+            var style = styleWindow.FindControl<Avalonia.Controls.CheckBox>("ConversationalCheck")!;
+            Assert.False(style.IsChecked == true);
+            Assert.Empty(styleWindow.Proposals);
+            style.IsChecked = true;
+            Assert.Equal("Estou pronto.", Assert.Single(styleWindow.Proposals).ConvertedText);
+            styleWindow.FindControl<Expander>("ReviewTools")!.IsExpanded = true;
+            styleWindow.FindControl<Expander>("LayoutTools")!.IsExpanded = true;
+            styleWindow.Show();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            foreach (var width in new[] { styleWindow.MinWidth, 1120d })
+            {
+                styleWindow.Width = width;
+                var content = Assert.IsAssignableFrom<Control>(styleWindow.Content);
+                content.Measure(new Avalonia.Size(width - 40, 720));
+                content.Arrange(new Avalonia.Rect(0, 0, width - 40, 720));
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                var reviewTools = styleWindow.FindControl<Expander>("ReviewTools")!;
+                var layoutTools = styleWindow.FindControl<Expander>("LayoutTools")!;
+                Assert.Same(reviewTools.Parent, layoutTools.Parent);
+                Assert.True(layoutTools.Bounds.Left >= reviewTools.Bounds.Right);
+                foreach (var name in new[] { "LineLength", "MaxLines", "CharactersPerSecond" })
+                {
+                    var numeric = styleWindow.FindControl<NumericUpDown>(name)!;
+                    var input = Assert.Single(numeric.GetVisualDescendants().OfType<TextBox>());
+                    Assert.True(input.Bounds.Width >= 40, $"{name}: numeric input has only {input.Bounds.Width} pixels.");
+                    Assert.False(string.IsNullOrWhiteSpace(input.Text));
+                }
+                var rules = Assert.Single(styleWindow.GetVisualDescendants().OfType<Expander>(),
+                    expander => Equals(expander.Header, "Rules and regression export"));
+                var row = Assert.IsType<Grid>(rules.Parent);
+                var conversion = Assert.Single(row.Children.OfType<StackPanel>());
+                Assert.True(rules.Bounds.Left >= conversion.Bounds.Right);
+            }
+            styleWindow.Close();
+            style.IsChecked = false;
+            Assert.Empty(styleWindow.Proposals);
+            var configureWindow = new MainWindow(new PluginRequest { RequestType = PluginRequestType.Configure });
+            Assert.False(configureWindow.FindControl<Expander>("ReviewTools")!.IsVisible);
+            Assert.Equal(0, configureWindow.FindControl<Grid>("ReviewLayoutPanels")!.ColumnDefinitions[0].Width.Value);
+            var warningsWindow = new MainWindow(new PluginRequest
+            {
+                SettingsVersion = ConversionOptions.Version,
+                Settings = new ConversionOptions(UseReference: false).ToJson(),
+                Subtitle = new PluginSubtitle
+                {
+                    Format = "SubRip",
+                    SubRip = "1\n00:00:01,000 --> 00:00:02,000\nEsta linha é longa e já está correta.\n",
+                },
+            });
+            var warnings = warningsWindow.FindControl<CheckBox>("LayoutWarningsCheck")!;
+            Assert.False(warnings.IsChecked == true);
+            Assert.Empty(warningsWindow.Proposals);
+            warnings.IsChecked = true;
+            var layoutReview = Assert.Single(warningsWindow.Proposals);
+            Assert.False(layoutReview.IsChange);
+            Assert.Contains("Layout:", layoutReview.ReviewNote);
+            warnings.IsChecked = false;
+            Assert.Empty(warningsWindow.Proposals);
         }
         finally
         {
