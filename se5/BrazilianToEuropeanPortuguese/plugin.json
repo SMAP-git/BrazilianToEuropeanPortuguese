@@ -8,7 +8,6 @@
   "menu": "Tools",
   "minSeVersion": "5.0.0",
   "batch": true,
-  "executables": {
-    "linux": "BrazilianToEuropeanPortuguese"
-  }
+  "runtime": "dotnet",
+  "entry": "BrazilianToEuropeanPortuguese.dll"
 }

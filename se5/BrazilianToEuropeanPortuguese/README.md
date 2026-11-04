@@ -847,10 +847,14 @@ Supports Subtitle Edit's **Batch convert** (Tools → Batch convert → Run plug
 dotnet publish BrazilianToEuropeanPortuguese.csproj -c Release -r <rid> --self-contained -o publish/BrazilianToEuropeanPortuguese
 ```
 
-Then copy the `BrazilianToEuropeanPortuguese` folder (it contains `plugin.json`) into the
-`Plugins` folder of Subtitle Edit 5. For a self-contained build, edit the copied `plugin.json` like the
-CI does: remove `runtime`/`entry` and add `"executables": { "windows": "BrazilianToEuropeanPortuguese.exe" }`
-(or `"linux"` / `"macos"`: `"BrazilianToEuropeanPortuguese"`).
+For Windows, use `win-x64` or `win-arm64` as `<rid>`; use `linux-x64`,
+`linux-arm64`, `osx-x64` or `osx-arm64` for the other supported platforms.
+For a manual self-contained install, use the matching per-OS `plugin.json` produced by
+the release workflow, then copy the **entire** published
+`BrazilianToEuropeanPortuguese` folder (including the manifest and all dependencies)
+into Subtitle Edit 5's `Plugins` folder. Do not copy only the executable or DLL.
+The source `plugin.json` uses the normal .NET entry-point format; release packages
+replace it with the platform-specific executable manifest.
 
 ## Tests
 
