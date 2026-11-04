@@ -47,6 +47,26 @@ public sealed class BatchModeTests : IDisposable
         Assert.Contains("Certo, veja...", Texts(response));
     }
 
+    [Fact]
+    public void Batch_FormalAddressInDashedReplyKeepsCommandFormal()
+    {
+        var response = BatchMode.BuildBatchResponse(
+            Request("Aparentemente não.", "Certo, veja...", "Uma mulher foi espancada\ne violentada.", "E Sebastian dá com os ombros,",
+                "- e isso é \"aparentemente não\"?\n- Não gosto de seu tom, detetive."),
+            WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal("Certo, veja...", Texts(response)[1]);
+    }
+
+    [Fact]
+    public void Batch_FormalAddressInLaterDashedCueKeepsCommandFormal()
+    {
+        var response = BatchMode.BuildBatchResponse(
+            Request("Bem, olhe um veículo parecido,", "em marca e modelo,\ncom uma placa semelhante", "envolveu-se numa série de\nestupros ontem à noite.",
+                "- Não seja ridículo.\n- Alguém mais teria", "- acesso ao veículo, madame?\n- Já chega disto."),
+            WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal("Bem, olhe um veículo parecido,", Texts(response)[0]);
+    }
+
     private PluginRequest EpisodeRequest(string text, bool withEnglish, string english = "So we got prints and his picture now.")
     {
         var request = Request(text);

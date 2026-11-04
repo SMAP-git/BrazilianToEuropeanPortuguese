@@ -179,18 +179,29 @@ public static class BatchMode
 
     internal static PluginResponse BuildOkResponse(List<SrtBlock> blocks, IReadOnlyDictionary<int, string> changesByLine, ConversionOptions options)
     {
+        // A line the user emptied by hand is deleted from the subtitle.
+        var removed = new HashSet<int>();
         for (var i = 0; i < blocks.Count; i++)
         {
             if (changesByLine.TryGetValue(i, out var newText))
             {
-                blocks[i].Text = newText;
+                if (string.IsNullOrWhiteSpace(newText)) removed.Add(i);
+                else blocks[i].Text = newText;
             }
+        }
+
+        if (removed.Count > 0)
+        {
+            var kept = blocks.Where((_, i) => !removed.Contains(i)).ToList();
+            blocks.Clear();
+            blocks.AddRange(kept);
         }
 
         return new PluginResponse
         {
             Status = PluginStatus.Ok,
-            Message = $"Converted {changesByLine.Count} line(s) to European Portuguese.",
+            Message = $"Converted {changesByLine.Count - removed.Count} line(s) to European Portuguese." +
+                      (removed.Count > 0 ? $" Removed {removed.Count} empty line(s)." : string.Empty),
             UndoDescription = Name,
             Settings = options.ToJson(),
             SettingsVersion = ConversionOptions.Version,

@@ -190,6 +190,36 @@ for every unseen sentence. No remote model is used.
 
 ### Grammar and vocabulary limitations
 
+A corpus review of converted TV subtitles added guarded rules for: *estavam armando* → *a armar*;
+*nos*/*me te* clitics (*Nos diga* → *Diz-nos*, *tentando me proteger* → *a tentar proteger-me*);
+*para mim fazer* → *para eu fazer*; *ao invés de* → *em vez de*; *quadras* (blocks) → *quarteirões*;
+phone *ligação* → *chamada*; *passagem de avião* → *bilhete*; *motorista* → *condutor* (not buses/taxis);
+*toda hora* → *a toda a hora*; *cara* → *tipo/homem/pá*; *chamou de idiota* → *chamou idiota*;
+*ficha criminal* → *registo criminal*; and the article after *tenho/quero/perdi* (*o meu carro*).
+Further guarded rules: *dá com os ombros* → *abana os ombros*; *kit estupro* → *kit de violação*;
+*levar pro pessoal* → *levar para o lado pessoal*; *pensar de ir* → *pensar em ir*; *de topless* → *em topless*;
+movement verbs with a place (*vou na padaria* → *vou à padaria*, not *foi no sábado*); and a giving/telling verb
+with an object and *para + pronoun* (*mostrar a casa para ele* → *mostrar-lhe a casa*, not *levar o carro para ele*).
+A review of Blue Bloods S08 added: *Policial Kevin* → *Agente Kevin*, *Obrigado, policial* → *agente*;
+*continuaremos procurando* → *a procurar*; *$ 200* → *200 dólares*; *Time 2* → *Equipa 2*; *dar ré* → *marcha-atrás*;
+*jogou uma garrafa na rua* → *atirou*; *jogar a toalha* → *atirar a toalha ao chão*; stand-alone *Cara.* → *Pá.*;
+and *cara do FedEx* → *tipo do FedEx*. *Sinto muito* is left as is (it is also normal in PT-PT).
+A second S08 pass added: unaccented *Ta/Esta* before a gerund (*Ta brincando?* → *Estás a brincar?*); *pegar leve* → *ir com calma*;
+plural *caras* → *tipos* (*Caras,* → *Rapazes,*); *ao invés da/do* → *em vez da/do*; and *Agora/Hoje/Aqui/Ontem/Depois me…* →
+*Agora arrependo-me*, *Hoje sinto-me*. *Pegar fogo* is left as is (it is also used in PT-PT).
+A third S08 pass added: the article after a cue-initial *Nossa* + noun and after a gerund (*Nossa foto…* → *A nossa foto…*,
+*ocupando nossa cadeira* → *ocupando a nossa cadeira*; exclamations such as *Nossa, que lindo!* are untouched);
+*A policial Janko* → *A agente Janko* (also *O policial Olivet* → *O agente Olivet*); *sabia sobre isso* → *sabia disto*;
+informal *Mande entrar.* → *Mando-o entrar.* (formal address keeps *Mande-o entrar*); and *melhor policial / fosses policial / disfarçado de policial* → *polícia*.
+A bare *policial* as the person involved (*envolvendo / baleado por / matou / atacou / contra policial*) → *um agente* / *agentes*.
+With an English reference that says *officer* (not *cop*), a person called *policial/polícia* is always *agente* (*The officer arrived* → *O agente chegou*); *a polícia* as the force is untouched.
+A fourth pass added: *ter ficha* (a record) → *tem registo criminal* in police matters (*A vítima tem ficha?* → *A vítima tem registo criminal?*),
+→ *historial clínico* when hospital/patient/medical words are in the cue, *ficha limpa/suja* → *registo criminal limpo/sujo*;
+*ficha de inscrição* and *ficha técnica* are untouched.
+*Tem uma reunião/ligação/consulta/chamada… com/às/amanhã* (having an appointment) is no longer turned into existential *Há*, so it can become *Tens…*; a telephone *ligação* after *ter/haver* + *uma* → *chamada*.
+For conversational dialogue, *logo após* is converted to *logo depois*; standalone *após* is preserved.
+Explicit calls or dials to the Brazilian or US emergency numbers *190* and *911* are changed to the European emergency number *112* (e.g. *Liga para o 190* → *Liga para o 112*); other uses of those numbers are left unchanged. When a form of *gostar* is followed by *que eu* and a recognized first-person past-tense verb, the clause is rephrased as *de ser eu a* + infinitive (e.g. *Ele gostou que eu conduzi* → *Ele gostou de ser eu a conduzir*; *Ele gostou que eu paguei a conta* → *Ele gostou de ser eu a pagar a conta*). Existing subjunctive forms are preserved.
+
 Underwear is adapted to PT-PT plural *cuecas*, including singular BR *calcinha/cueca*,
 nearby feminine articles/possessives and reviewed adjectives/copulas:
 *a minha calcinha branca* → *as minhas cuecas brancas*,
@@ -339,7 +369,8 @@ The preview and batch conversion also check up to 12 original cues before and af
 within 30 seconds, for explicit forms of address such as *Sr. diretor,* or *Não concordo, detetive.*
 Aligned English can supply the same evidence (*Mr. …*, *…, Detective*, *Yes, sir*).
 This preserves formal commands (*Certo, veja*, *Não fale*) and formal address/pronouns
-even when the title is not in the immediately preceding cue. A gap greater than 5 seconds
+even when the title is not in the immediately preceding cue. Dash-separated exchanges (*- Não gosto de seu tom, detetive.*,
+*- … madame?*) count as the same conversation; only a labelled speaker change (*JOÃO:* → *MARIA:*), a scene gap or an informal *tu* ends the scan. A gap greater than 5 seconds
 or explicit Portuguese *tu/teu/tua/ti/contigo* stops the context search. Mere mentions
 (*o detetive chegou*, *the doctor called*) and English *you/look* do not establish formality.
 Without speaker or scene labels this is a bounded heuristic, not a guarantee that nearby
@@ -585,6 +616,14 @@ its field when the row wraps. Batch configuration uses the full panel width.
 
 **Review tools** adds:
 
+- **Manual editing:** the converted text of every row is an editable box. Click it and
+  type the wording you want; the row is ticked automatically and your text is what
+  **Apply** writes (also for lines the plugin left unchanged). If you delete all the text of
+  a row, that cue is removed from the resulting subtitle (the remaining cues are renumbered).
+  The same text becomes the
+  expected PT-PT in the regression export. Toggling **Include layout change** discards the
+  manual edit of that row.
+
 - Expand **Rules and regression export** to the right of a row's original/converted
   text to see the stages that changed it,
   including dictionary-validated versus context-sensitive evidence. These are stage
@@ -737,14 +776,19 @@ Under **Extra checks** in the same section. They run after the rules, when the w
 - **Flag meaning changes (MiniLM)** (ticked by default; needs the MiniLM model and
   llama-server above) marks a converted line for review when its meaning seems to have moved
   away from the original (similarity below 0.70), or, with an English reference, when it is
-  clearly further from the English than the original was (by 0.10 or more). It never changes
+  clearly further from the English than the original was (by 0.10 or more; by only 0.04 when
+  the original line matched the English well, 0.60 or more, because that first-stage score is the
+  baseline, so a small drop is already suspicious, e.g. *Tem uma ligação* → *Há uma ligação*
+  for *You have a call*). The note shows the before/after scores. It never changes
   text. On a typical episode it flags about 2–3% of the changed lines; many are correct word swaps
   (*porão → cave*, *prefeito → presidente da câmara*), but it is how errors such as
   *maioridade legal → maioridade fixe* and *conversa furado* were found.
   With an English reference it also checks **every** line, changed or not, against its English
-  cue, to find lines that the Brazilian file translated badly: a line of 3+ words whose similarity
-  to the English is below 0.45 gets *MiniLM: this line may not say what the English says - check
-  the translation.* Cues much longer or shorter than the line (merged or split differently) are
+  cue in two stages: first the **original Brazilian line, before the rules** (a line of 3+ words
+  whose similarity to the English is below 0.45 gets *MiniLM (before the rules): the Brazilian
+  line may not say what the English says*), then the converted line (*the original matched the
+  English but this line no longer does - a rule may have damaged it*). This tells a bad Brazilian
+  translation apart from a rule that broke a good one. Cues much longer or shorter than the line (merged or split differently) are
   skipped. On a typical episode it flags about 2% of the lines, mostly idioms or slang translated
   literally. MiniLM compares meaning, not grammar (*Eu nunca
   sair da linha* scores 0.88 against the English); *vou fala* can likewise retain the intended

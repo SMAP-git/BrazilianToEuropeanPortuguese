@@ -115,7 +115,7 @@ internal sealed record CheckLine(int Index, string Original, string Converted, s
 
 internal sealed record CheckResult(string Text, string? Note);
 
-/// <summary>Optional checks with local models, after the rules: Gervásio PT-PT choices, MiniLM meaning flags.</summary>
+/// <summary>Optional checks with local models: Gervásio PT-PT choices after the rules; MiniLM meaning flags before and after the rules.</summary>
 internal static class LocalChecks
 {
     /// <summary>Gervásio must prefer a candidate by this many nats (about 7×) before it replaces the rules' choice.</summary>
@@ -124,6 +124,12 @@ internal static class LocalChecks
     internal const double MeaningThreshold = 0.70;
     /// <summary>With an English reference: flag when the converted line is this much further from the English than the original.</summary>
     internal const double ReferenceDrop = 0.10;
+    /// <summary>
+    /// The first review (before the rules) is the baseline: when the Brazilian line already matched the English at least this well,
+    /// a much smaller drop after the rules is suspicious ("Tem uma ligação" → "Há uma ligação" for "You have a call").
+    /// </summary>
+    internal const double FaithfulBaseline = 0.60;
+    internal const double SuspiciousDrop = 0.04;
     /// <summary>
     /// Every line with an English cue, changed or not: below this MiniLM similarity to the English the Brazilian translation itself
     /// may be wrong (an idiom or slang word translated literally). About 2% of the lines of a typical episode.
@@ -239,7 +245,8 @@ internal static class LocalChecks
         Action<int, string> note, IProgress<string> progress, CancellationToken token)
     {
         var changed = lines.Where(l => l.Original != texts[l.Index]).ToList();
-        var referenced = lines.Where(l => IsComparable(texts[l.Index], l.Reference)).ToList();
+        // Stage 1 (before the rules): is the Brazilian line itself faithful to the English? Stage 2 (after): did the rules keep it so?
+        var referenced = lines.Where(l => IsComparable(l.Original, l.Reference) || IsComparable(texts[l.Index], l.Reference)).ToList();
         if (changed.Count == 0 && referenced.Count == 0) return (0, 0);
         await using var runtime = await EmbeddingRuntime.StartAsync(settings, progress, token);
         var cache = new Dictionary<string, float[]>(StringComparer.Ordinal);
@@ -261,12 +268,13 @@ internal static class LocalChecks
             if (original == null || converted == null) continue;
             var similarity = ReferenceAligner.Dot(original, converted);
             var english = await Embed(line.Reference);
-            var drop = english == null ? 0 : ReferenceAligner.Dot(original, english) - ReferenceAligner.Dot(converted, english);
-            if (similarity < MeaningThreshold || drop >= ReferenceDrop)
+            var baseline = english == null ? 0 : ReferenceAligner.Dot(original, english);
+            var drop = english == null ? 0 : baseline - ReferenceAligner.Dot(converted, english);
+            if (similarity < MeaningThreshold || drop >= (baseline >= FaithfulBaseline ? SuspiciousDrop : ReferenceDrop))
             {
                 note(line.Index, english == null || similarity < MeaningThreshold
                     ? $"MiniLM: the meaning may have changed (similarity {similarity:0.00}) - check it."
-                    : $"MiniLM: further from the English than the original ({drop:0.00}) - check it.");
+                    : $"MiniLM: further from the English than the original ({baseline:0.00} before the rules, {baseline - drop:0.00} after) - check it.");
                 flagged++;
                 flaggedLines.Add(line.Index);
             }
@@ -277,13 +285,22 @@ internal static class LocalChecks
         for (var i = 0; i < referenced.Count; i++)
         {
             var line = referenced[i];
-            var converted = await Embed(texts[line.Index]);
             var english = await Embed(line.Reference);
-            if (converted == null || english == null) continue;
-            var similarity = ReferenceAligner.Dot(converted, english);
-            if (similarity < TranslationThreshold && flaggedLines.Add(line.Index))
+            if (english == null) continue;
+            var original = IsComparable(line.Original, line.Reference) ? await Embed(line.Original) : null;
+            var converted = IsComparable(texts[line.Index], line.Reference) ? await Embed(texts[line.Index]) : null;
+            var beforeRules = original == null ? (double?)null : ReferenceAligner.Dot(original, english);
+            var afterRules = converted == null ? (double?)null : ReferenceAligner.Dot(converted, english);
+            if (beforeRules < TranslationThreshold && flaggedLines.Add(line.Index))
             {
-                note(line.Index, $"MiniLM: this line may not say what the English says (similarity {similarity:0.00}) - check the translation.");
+                note(line.Index, $"MiniLM (before the rules): the Brazilian line may not say what the English says (similarity {beforeRules:0.00}) - check the translation.");
+                translation++;
+            }
+            else if (afterRules < TranslationThreshold && flaggedLines.Add(line.Index))
+            {
+                note(line.Index, beforeRules >= TranslationThreshold
+                    ? $"MiniLM (after the rules): the original matched the English but this line no longer does (similarity {afterRules:0.00}) - a rule may have damaged it."
+                    : $"MiniLM: this line may not say what the English says (similarity {afterRules:0.00}) - check the translation.");
                 translation++;
             }
             if (i % 50 == 0) progress.Report($"MiniLM: translation check {i + 1}/{referenced.Count}...");

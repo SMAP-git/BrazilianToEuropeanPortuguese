@@ -270,9 +270,12 @@
                                            TextWrapping="Wrap"
                                            Opacity="0.55"
                                            FontSize="12" />
-                                <TextBlock Text="{Binding ConvertedText}"
-                                           TextWrapping="Wrap"
-                                           FontWeight="SemiBold" />
+                                <TextBox Text="{Binding ConvertedText, Mode=TwoWay}"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         FontWeight="SemiBold"
+                                         Padding="4,2"
+                                         ToolTip.Tip="Edit this line by hand; what you type is what gets applied." />
                                 <TextBlock Text="{Binding ReferenceText}"
                                            IsVisible="{Binding HasReference}"
                                            TextWrapping="Wrap"

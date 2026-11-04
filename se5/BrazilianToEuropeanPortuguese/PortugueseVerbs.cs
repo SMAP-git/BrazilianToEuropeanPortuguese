@@ -509,6 +509,63 @@ internal static class PortugueseVerbs
 
     public static bool IsKnownInfinitive(string word) => Infinitives.Contains(word.ToLowerInvariant());
 
+    public static bool TryGetFirstPersonPastInfinitive(string word, out string infinitive)
+    {
+        var lower = word.ToLowerInvariant();
+        var irregular = lower switch
+        {
+            "dei" => "dar",
+            "disse" => "dizer",
+            "fiz" => "fazer",
+            "li" => "ler",
+            "pude" => "poder",
+            "pus" => "pôr",
+            "quis" => "querer",
+            "soube" => "saber",
+            "trouxe" => "trazer",
+            "tive" => "ter",
+            "vi" => "ver",
+            "vim" => "vir",
+            _ => null,
+        };
+        if (irregular != null)
+        {
+            infinitive = CaseHelper.MatchCase(word, irregular);
+            return true;
+        }
+
+        string? found = null;
+        foreach (var verb in RegularAr.Concat(RegularEr).Concat(RegularIr))
+        {
+            var stem = verb[..^2];
+            var preterite = verb.EndsWith("ar", StringComparison.Ordinal)
+                ? (stem.EndsWith('c') ? stem[..^1] + "qu" : stem.EndsWith('g') ? stem + "u" : stem.EndsWith('ç') ? stem[..^1] + "c" : stem) + "ei"
+                : stem + "i";
+            var imperfect = verb.EndsWith("ar", StringComparison.Ordinal) ? stem + "ava" : stem + "ia";
+            if (lower != preterite && lower != imperfect)
+            {
+                continue;
+            }
+
+            if (found != null && found != verb)
+            {
+                infinitive = word;
+                return false;
+            }
+
+            found = verb;
+        }
+
+        if (found == null)
+        {
+            infinitive = word;
+            return false;
+        }
+
+        infinitive = CaseHelper.MatchCase(word, found);
+        return true;
+    }
+
     internal static string PersonalInfinitive(string infinitive, string ending)
     {
         var lower = infinitive.ToLowerInvariant();

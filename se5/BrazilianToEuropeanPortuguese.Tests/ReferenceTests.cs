@@ -22,6 +22,44 @@ public sealed class ReferenceTests(ITestOutputHelper output)
 
     private static SrtBlock Cue(long start, long end, string text) => new() { StartMs = start, EndMs = end, Text = text };
 
+    [Fact]
+    public void EmptiedLineIsRemovedFromTheSubtitle()
+    {
+        var blocks = new List<SrtBlock> { Cue(0, 1000, "Um."), Cue(1000, 2000, "Dois."), Cue(2000, 3000, "Três.") };
+        var response = BatchMode.BuildOkResponse(blocks, new Dictionary<int, string> { [1] = "  ", [2] = "Três!" }, ConversionOptions.Default);
+        var texts = SubRipParser.Parse(response.Subtitle!.Native!).Select(b => b.Text).ToArray();
+        Assert.Equal(new[] { "Um.", "Três!" }, texts);
+    }
+
+    [Theory]
+    [InlineData("O policial chegou.", "The officer arrived.", "O agente chegou.")]
+    [InlineData("Os policiais chegaram.", "The officers arrived.", "Os agentes chegaram.")]
+    [InlineData("Um policial foi baleado.", "An officer was shot.", "Um agente foi baleado.")]
+    [InlineData("O policial chegou.", "He arrived.", "O polícia chegou.")]
+    [InlineData("Chame a polícia.", "Call the police.", "Chama a polícia.")]
+    public void OfficerInTheEnglishMeansAgente(string br, string english, string expected) =>
+        Assert.Equal(expected, Converter.Convert(br, null, ReferenceHint.FromText(english)));
+
+    [Fact]
+    public void ManualEditReplacesTheProposalAndIsSelected()
+    {
+        var proposal = new ChangeProposal(0, "Tem uma ligação\ncom o chefe.", "Há uma chamada\ncom o chefe.");
+        proposal.Include = false;
+        proposal.ConvertedText = "Tens uma chamada\r\ncom o chefe.";
+        Assert.Equal("Tens uma chamada\ncom o chefe.", proposal.ConvertedText);
+        Assert.True(proposal.Include);
+        Assert.Equal(proposal.ConvertedText, proposal.ExpectedText);
+        proposal.ConvertedText = "Há uma chamada\ncom o chefe.";
+        Assert.Equal("Há uma chamada\ncom o chefe.", proposal.ConvertedText);
+    }
+
+    [Theory]
+    [InlineData("Tem uma ligação\ncom o chefe da PBA às 13h.", "You have a call with the PBA chief at 1:00,", "Tens uma chamada\ncom o chefe da PBA às 13h.")]
+    [InlineData("Tem uma reunião\ncom TARU às 15h,", "you have a briefing with TARU at 3:00 p.m.,", "Tens uma reunião\ncom TARU às 15h,")]
+    [InlineData("Tem uma consulta marcada.", "You have an appointment.", "Tens uma consulta marcada.")]
+    public void HavingAnAppointmentIsNotExistential(string br, string english, string expected) =>
+        Assert.Equal(expected, Converter.Convert(br, null, ReferenceHint.FromText(english)));
+
     [Theory]
     [InlineData("acha", "achamos")]
     [InlineData("pensa", "pensamos")]

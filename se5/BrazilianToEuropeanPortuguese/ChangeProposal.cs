@@ -13,7 +13,24 @@ public partial class ChangeProposal : ObservableObject
     public string OriginalText { get; }
     public string LanguageText { get; }
     public string WrappedText { get; }
-    public string ConvertedText => IncludeLayout ? WrappedText : LanguageText;
+    private string? _edited;
+    /// <summary>The text that will be applied: the user's manual edit when there is one, otherwise the plugin's result.</summary>
+    public string ConvertedText
+    {
+        get => _edited ?? (IncludeLayout ? WrappedText : LanguageText);
+        set
+        {
+            var text = NormalizeBreaks(value ?? string.Empty);
+            var automatic = IncludeLayout ? WrappedText : LanguageText;
+            var edited = text == automatic ? null : text;
+            if (edited == _edited) return;
+            _edited = edited;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsChange));
+            ExpectedText = ConvertedText;
+            Include = IsChange;
+        }
+    }
     public bool HasLayoutChange => LanguageText != WrappedText;
     public IReadOnlyList<RuleChange> Rules { get; }
     public string Explanation => string.Join("\n", Rules.Select(r => $"{r.Id}: {r.Description} [{r.Basis}]")) +
@@ -29,7 +46,7 @@ public partial class ChangeProposal : ObservableObject
         .Where(n => n.Length > 0));
     public bool HasReview => ReviewNote.Length > 0;
     /// <summary>False for review-only lines: there is nothing to apply.</summary>
-    public bool IsChange { get; }
+    public bool IsChange => OriginalText != LanguageText || OriginalText != WrappedText || _edited != null && _edited != OriginalText;
 
     public ChangeProposal(int lineIndex, string originalText, string convertedText, string? referenceText = null, string? reviewNote = null,
         IReadOnlyList<RuleChange>? rules = null, string? wrappedText = null, int sentenceGroup = -1,
@@ -46,7 +63,6 @@ public partial class ChangeProposal : ObservableObject
         _reviewNote = reviewNote ?? string.Empty;
         _wrappedLayoutNote = wrappedLayoutNote ?? string.Empty;
         _languageLayoutNote = languageLayoutNote ?? string.Empty;
-        IsChange = originalText != convertedText || originalText != WrappedText;
         _include = IsChange;
     }
 
@@ -55,8 +71,16 @@ public partial class ChangeProposal : ObservableObject
         if (value && !IsChange) Include = false;
     }
 
+    private string NormalizeBreaks(string text)
+    {
+        var lines = text.Replace("\r\n", "\n");
+        return OriginalText.Contains("\r\n") ? lines.Replace("\n", "\r\n") : lines;
+    }
+
     partial void OnIncludeLayoutChanged(bool value)
     {
+        _edited = null;
+        OnPropertyChanged(nameof(IsChange));
         OnPropertyChanged(nameof(ConvertedText));
         OnPropertyChanged(nameof(ReviewNote));
         OnPropertyChanged(nameof(HasReview));

@@ -76,6 +76,9 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
     /// <summary>The reference uses never + verb + any as an object, not "any more/longer".</summary>
     public bool NeverAnyObject { get; init; }
 
+    /// <summary>The English names an "officer" ("cop" stays polícia): the Brazilian "policial" is pt-PT "agente", not "polícia".</summary>
+    public bool Officer { get; init; }
+
     /// <summary>Hearing about news/events, not deliberately listening to a person or sound.</summary>
     public bool HearAbout { get; init; }
 
@@ -178,6 +181,7 @@ public sealed record ReferenceHint(bool SecondPerson, bool SecondPossessive, boo
             SecondPersonSubject = secondPersonSubject,
             StartsWithSecondPersonSubject = startsWithSecondPersonSubject,
             NeverAnyObject = NeverAny.IsMatch(clean),
+            Officer = Regex.IsMatch(clean, @"\bofficers?\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant),
             HearAbout = HearingAbout.IsMatch(clean) && !Regex.IsMatch(clean, @"\blisten(?:s|ed|ing)?\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant),
             CatchUpLater = Regex.IsMatch(clean, @"\bcatch(?:\s+up\s+with)?\s+you(?:\s+guys|\s+all)?\s+later\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant),
             Past = past && !modal, Present = present && !past && !modal };
@@ -218,10 +222,12 @@ internal static class DialogueRegister
                 var right = source[Math.Max(previous, candidate)];
                 var candidateSpeaker = speakers?[candidate]?.Trim() ?? SpeakerOf(source[candidate].Text);
                 if (right.StartMs < left.StartMs || right.StartMs - left.EndMs > 5000 ||
-                    speaker.Length > 0 && candidateSpeaker.Length > 0 && speaker != candidateSpeaker ||
-                    DifferentSpeaker(left.Text, right.Text) ||
                     Math.Abs(source[candidate].StartMs - source[index].StartMs) > 30000 ||
                     Informal.IsMatch(Plain(source[candidate].Text))) break;
+                // Dash-separated exchanges are the same conversation: their address still counts, and the scan continues past them.
+                var labelChange = speaker.Length > 0 && candidateSpeaker.Length > 0 && speaker != candidateSpeaker ||
+                                  SpeakerOf(left.Text).Length > 0 && SpeakerOf(right.Text).Length > 0 && SpeakerOf(left.Text) != SpeakerOf(right.Text);
+                if (labelChange) break;
                 if (Address(candidate)) return true;
                 if (candidateSpeaker.Length > 0) speaker = candidateSpeaker;
                 previous = candidate;

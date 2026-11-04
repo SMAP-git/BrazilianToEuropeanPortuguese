@@ -434,7 +434,7 @@ public partial class MainWindow : Window
             UpdateSummary();
             if (Options.ValidateSpelling) _dictionaryStatus.Text = ValidationSummary();
         }
-        if (e.PropertyName == nameof(ChangeProposal.IncludeLayout))
+        if (e.PropertyName is nameof(ChangeProposal.IncludeLayout) or nameof(ChangeProposal.ConvertedText))
         {
             UpdateSummary();
             if (Options.ValidateSpelling) _dictionaryStatus.Text = ValidationSummary();
