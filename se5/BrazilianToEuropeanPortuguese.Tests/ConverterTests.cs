@@ -10,6 +10,104 @@ public sealed class ConverterTests
     private static void AssertConverts(string br, string pt) => Assert.Equal(pt, Converter.Convert(br));
 
     [Theory]
+    [InlineData("Uma sacola nova.", "Um saco novo.")]
+    [InlineData("As sacolas vazias.", "Os sacos vazios.")]
+    [InlineData("Os shorts novos.", "Os calções novos.")]
+    [InlineData("O aipim cozido.", "A mandioca cozida.")]
+    [InlineData("Um misto-quente.", "Uma tosta mista.")]
+    [InlineData("Os mistos-quentes.", "As tostas mistas.")]
+    [InlineData("Uma chave de fenda.", "Uma chave de fendas.")]
+    [InlineData("As chaves de fenda.", "As chaves de fendas.")]
+    [InlineData("A arruela está gasta.", "A anilha está gasta.")]
+    [InlineData("As arruelas novas.", "As anilhas novas.")]
+    [InlineData("Uma furadeira nova.", "Um berbequim novo.")]
+    [InlineData("As furadeiras novas.", "Os berbequins novos.")]
+    [InlineData("A embreagem.", "A embraiagem.")]
+    [InlineData("As embreagens.", "As embraiagens.")]
+    [InlineData("Uma porca borboleta.", "Uma porca de orelhas.")]
+    [InlineData("As porcas borboleta.", "As porcas de orelhas.")]
+    [InlineData("As porcas borboletas.", "As porcas de orelhas.")]
+    [InlineData("O torque de aperto.", "O binário de aperto.")]
+    [InlineData("Os torques de aperto.", "Os binários de aperto.")]
+    [InlineData("Eu rosqueei a tampa.", "Eu enrosquei a tampa.")]
+    [InlineData("Ela rosqueava a tampa.", "Ela enroscava a tampa.")]
+    [InlineData("Para rosquear a tampa.", "Para enroscar a tampa.")]
+    [InlineData("Ele parafusou a peça.", "Ele aparafusou a peça.")]
+    [InlineData("Ela desparafusou a tampa.", "Ela desaparafusou a tampa.")]
+    [InlineData("Vou parafusá-lo.", "Vou aparafusá-lo.")]
+    [InlineData("Ele desengraxou a superfície.", "Ele desengordurou a superfície.")]
+    [InlineData("Ela destravou a porta.", "Ela desbloqueou a porta.")]
+    [InlineData("Ele afrouxou a porca.", "Ele desapertou a porca.")]
+    [InlineData("Ela engraxou o mecanismo.", "Ela lubrificou o mecanismo.")]
+    [InlineData("Eu digitei o código.", "Eu introduzi o código.")]
+    [InlineData("Eu digito o código.", "Eu introduzo o código.")]
+    [InlineData("Tu digitas o código.", "Tu introduzes o código.")]
+    [InlineData("Eles digitam dados.", "Eles introduzem dados.")]
+    [InlineData("Para digitar a palavra-passe.", "Para introduzir a palavra-passe.")]
+    [InlineData("Ele digita a senha.", "Ele introduz a palavra-passe.")]
+    [InlineData("Eu subi um arquivo.", "Eu carreguei um ficheiro.")]
+    [InlineData("Eu subo o arquivo.", "Eu carrego o ficheiro.")]
+    [InlineData("Ela sobe os arquivos.", "Ela carrega os ficheiros.")]
+    [InlineData("Eles sobem documentos para a plataforma.", "Eles carregam documentos para a plataforma.")]
+    [InlineData("Tu sobes o ficheiro.", "Tu carregas o ficheiro.")]
+    [InlineData("Ela subiu o documento para o servidor.", "Ela carregou o documento para o servidor.")]
+    [InlineData("Vou subir o ficheiro.", "Vou carregar o ficheiro.")]
+    [InlineData("Ela estava subindo o arquivo.", "Ela estava a carregar o ficheiro.")]
+    [InlineData("Vou baixar o documento.", "Vou descarregar o documento.")]
+    [InlineData("Ela salvou o ficheiro.", "Ela guardou o ficheiro.")]
+    [InlineData("<i>Ela subiu\num arquivo.</i>", "<i>Ela carregou\num ficheiro.</i>")]
+    public void VocabularyVerbWorkbookAddsReviewedMissingSenses(string source, string expected)
+    {
+        AssertConverts(source, expected);
+        AssertConverts(expected, expected);
+    }
+
+    [Theory]
+    [InlineData("Ele engraxou os sapatos.")]
+    [InlineData("Ela afrouxou a vigilância.")]
+    [InlineData("Ele subiu a escada.")]
+    [InlineData("Ele subiu os documentos para o sótão.")]
+    [InlineData("Ela subiu o documento.")]
+    [InlineData("Ela sobe ao palco.")]
+    [InlineData("Os preços sobem.")]
+    [InlineData("Ele salvou a criança.")]
+    [InlineData("Ela baixou a cabeça.")]
+    [InlineData("O grampo de cabelo.")]
+    [InlineData("Uma prova de amor.")]
+    [InlineData("O boleto.")]
+    [InlineData("A vedação do terreno.")]
+    [InlineData("Ela confere autoridade.")]
+    [InlineData("Ele travou a batalha.")]
+    [InlineData("A fila está longa.")]
+    [InlineData("A matéria.")]
+    [InlineData("A mira telescópica.")]
+    [InlineData("A matriz de mira.")]
+    [InlineData("A torreta de ajuste.")]
+    [InlineData("O torquímetro.")]
+    [InlineData("Ela digita cartas.")]
+    [InlineData("A pressão de calibragem dos pneus.")]
+    public void VocabularyVerbWorkbookPreservesOtherSensesAndSharedPortuguese(string text) => AssertConverts(text, text);
+
+    [Theory]
+    [InlineData("Uma sacola nova.")]
+    [InlineData("Ela destravou a porta.")]
+    [InlineData("Ela engraxou o mecanismo.")]
+    [InlineData("Eu digitei o código.")]
+    [InlineData("Ela subiu um ficheiro.")]
+    public void VocabularyVerbWorkbookRespectsVocabularySwitch(string source) =>
+        Assert.Equal(source, new PortugueseConverter(new ConversionOptions(Vocabulary: false)).Convert(source));
+
+    [Fact]
+    public void UploadVerbRespectsConstructionStageAndReportsTrace()
+    {
+        const string source = "Ela subiu o ficheiro.";
+        var trace = new List<RuleChange>();
+        Assert.Equal("Ela carregou o ficheiro.", Converter.Convert(source, trace: trace));
+        Assert.Contains(trace, r => r.Id == "construction-vocabulary");
+        Assert.Equal(source, new PortugueseConverter(new ConversionOptions(DisabledRules: "construction-vocabulary")).Convert(source));
+    }
+
+    [Theory]
     [InlineData("porque você sempre sabe\nquando eu tô mentindo.", "porque sabes sempre\nquando estou a mentir.")]
     [InlineData("<i>porque você sempre sabe\nquando eu tô mentindo.</i>", "<i>porque sabes sempre\nquando estou a mentir.</i>")]
     [InlineData("Tu sempre sabes quando eu estou mentindo.", "Tu sabes sempre quando estou a mentir.")]

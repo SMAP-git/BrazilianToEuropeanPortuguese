@@ -29,6 +29,59 @@ public sealed class BatchModeTests : IDisposable
         SubRipParser.Parse(response.Subtitle!.Native).Select(b => b.Text).ToList();
 
     [Fact]
+    public void Batch_EnglishSportswearPreservesCueTimingAndReferenceSwitch()
+    {
+        var request = EpisodeRequest("Tira a fantasia.", true, "Ditch the leotard.");
+        var response = BatchMode.BuildBatchResponse(request, WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Tira o maillot." }, Texts(response));
+        Assert.Equal(SubRipParser.Parse(request.Subtitle.SubRip).Select(b => (b.StartMs, b.EndMs)),
+            SubRipParser.Parse(response.Subtitle!.Native).Select(b => (b.StartMs, b.EndMs)));
+        request.SettingsVersion = ConversionOptions.Version;
+        request.Settings = new ConversionOptions(UseReference: false).ToJson();
+        response = BatchMode.BuildBatchResponse(request, WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Null(response.Subtitle);
+        Assert.Contains("nothing to convert", response.Message);
+    }
+
+    [Fact]
+    public void Batch_SharedResidenceUsesEnglishWithoutModels()
+    {
+        var request = EpisodeRequest("Você é meu vizinho de andar.", true, "Hey, we live on the same floor.");
+        var response = BatchMode.BuildBatchResponse(request, WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Vivemos no mesmo andar." }, Texts(response));
+        Assert.Equal(SubRipParser.Parse(request.Subtitle.SubRip).Select(b => (b.StartMs, b.EndMs)),
+            SubRipParser.Parse(response.Subtitle!.Native).Select(b => (b.StartMs, b.EndMs)));
+        request.SettingsVersion = ConversionOptions.Version;
+        request.Settings = new ConversionOptions(UseReference: false).ToJson();
+        response = BatchMode.BuildBatchResponse(request, WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "És meu vizinho de andar." }, Texts(response));
+    }
+
+    [Fact]
+    public void Batch_PhysicalDescriptionsPreserveMeasurementsAndCueTimings()
+    {
+        var request = Request("Suspeito de cerca de 1,80m, porte médio.", "Uma mulher de 60 kg.",
+            "Um muro de cerca de dois metros.", "Um suspeito de cerca de 30 anos.");
+        var response = BatchMode.BuildBatchResponse(request, WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Suspeito com cerca de 1,80m, porte médio.", "Uma mulher com 60 kg.",
+            "Um muro de cerca de dois metros.", "Um suspeito de cerca de 30 anos." }, Texts(response));
+        Assert.Equal(SubRipParser.Parse(request.Subtitle.SubRip).Select(b => (b.StartMs, b.EndMs)),
+            SubRipParser.Parse(response.Subtitle!.Native).Select(b => (b.StartMs, b.EndMs)));
+    }
+
+    [Fact]
+    public void Batch_VocabularyVerbWorkbookPreservesCuesAndQualifiedSenses()
+    {
+        var request = Request("Uma furadeira nova.", "As sacolas vazias.", "Ele rosqueou a tampa.",
+            "Ela subiu um arquivo.", "Ele engraxou os sapatos.", "Eu digitei o código.");
+        var response = BatchMode.BuildBatchResponse(request, WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Um berbequim novo.", "Os sacos vazios.", "Ele enroscou a tampa.",
+            "Ela carregou um ficheiro.", "Ele engraxou os sapatos.", "Eu introduzi o código." }, Texts(response));
+        Assert.Equal(SubRipParser.Parse(request.Subtitle.SubRip).Select(b => (b.StartMs, b.EndMs)),
+            SubRipParser.Parse(response.Subtitle!.Native).Select(b => (b.StartMs, b.EndMs)));
+    }
+
+    [Fact]
     public void Batch_ExtractedQuestionsPreserveSubjectAndDistinguishObjects()
     {
         var request = EpisodeRequest("Ned, quem você acha que vê isso?", true,

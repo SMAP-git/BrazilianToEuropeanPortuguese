@@ -9,6 +9,102 @@ public sealed class ConstructionTests
     private static readonly PortugueseConverter Converter = new();
 
     [Theory]
+    [InlineData("Você é meu vizinho de andar.", "Hey, we live on the same floor.", "Vivemos no mesmo andar.")]
+    [InlineData("És meu vizinho de andar.", "We live on the same floor.", "Vivemos no mesmo andar.")]
+    [InlineData("Tu és o meu vizinho do mesmo andar.", "We live on the same floor.", "Vivemos no mesmo andar.")]
+    [InlineData("Sou tua vizinha de andar.", "We live on the same floor.", "Vivemos no mesmo andar.")]
+    [InlineData("Somos vizinhos do mesmo prédio.", "We live in the same building.", "Vivemos no mesmo edifício.")]
+    [InlineData("Você é meu vizinho da mesma rua.", "We live on the same street.", "Vivemos na mesma rua.")]
+    [InlineData("Sou teu vizinho do mesmo bairro.", "We live in the same neighborhood.", "Vivemos no mesmo bairro.")]
+    [InlineData("Nós somos vizinhos do mesmo quarteirão.", "We live on the same block.", "Vivemos no mesmo quarteirão.")]
+    [InlineData("Éramos vizinhos do mesmo edifício.", "We lived in the same building.", "Vivíamos no mesmo edifício.")]
+    [InlineData("Eras meu vizinho de andar.", "We lived on the same floor.", "Vivíamos no mesmo andar.")]
+    [InlineData("VOCÊ É MEU VIZINHO DE ANDAR.", "We live on the same floor.", "VIVEMOS NO MESMO ANDAR.")]
+    [InlineData("<i>Você é meu vizinho de andar.</i>", "Hey, we live on the same floor.", "<i>Vivemos no mesmo andar.</i>")]
+    [InlineData("Ei, somos vizinhos da mesma rua!", "Hey, we live on the same street!", "Olha, vivemos na mesma rua!")]
+    public void SharedResidenceRequiresMatchingEnglishMeaning(string source, string english, string expected)
+    {
+        var reference = ReferenceHint.FromText(english);
+        var trace = new List<RuleChange>();
+        Assert.Equal(expected, Converter.Convert(source, null, reference, trace));
+        Assert.Contains(trace, r => r.Id == "shared-residence");
+        Assert.Equal(expected, Converter.Convert(expected, null, reference));
+        foreach (var options in new[] { new ConversionOptions(Colloquial: false),
+            new ConversionOptions(Vocabulary: false), new ConversionOptions(DisabledRules: "shared-residence") })
+        {
+            var disabledTrace = new List<RuleChange>();
+            new PortugueseConverter(options).Convert(source, null, reference, disabledTrace);
+            Assert.DoesNotContain(disabledTrace, r => r.Id == "shared-residence");
+            Assert.Equal(source, ConversionConstructions.SharedResidence(source, null));
+        }
+    }
+
+    [Theory]
+    [InlineData("Somos vizinhos do mesmo prédio.", null)]
+    [InlineData("Somos vizinhos do mesmo prédio.", "We don't live in the same building.")]
+    [InlineData("Somos vizinhos do mesmo prédio.", "They live in the same building.")]
+    [InlineData("Somos vizinhos do mesmo prédio.", "We live on the same street.")]
+    [InlineData("Somos vizinhos do mesmo prédio.", "We lived in the same building.")]
+    [InlineData("Somos vizinhos do mesmo prédio.", "Do we live in the same building?")]
+    [InlineData("Somos vizinhos do mesmo prédio.", "We live in the same building, but not anymore.")]
+    [InlineData("Somos vizinhos do mesmo prédio?", "We live in the same building.")]
+    [InlineData("Não somos vizinhos do mesmo prédio.", "We live in the same building.")]
+    [InlineData("Somos vizinhos do mesmo prédio, mas não nos conhecemos.", "We live in the same building.")]
+    public void SharedResidencePreservesMissingConflictingAndComplexEvidence(string source, string? english)
+    {
+        var reference = ReferenceHint.FromText(english);
+        Assert.Equal(source, ConversionConstructions.SharedResidence(source, reference));
+        var trace = new List<RuleChange>();
+        var result = Converter.Convert(source, null, reference, trace);
+        Assert.Equal(new PortugueseConverter(new ConversionOptions(DisabledRules: "shared-residence"))
+            .Convert(source, null, reference), result);
+        Assert.DoesNotContain(trace, r => r.Id == "shared-residence");
+    }
+
+    [Theory]
+    [InlineData("Suspeito de cerca de 1,80m, porte médio.", "Suspeito com cerca de 1,80m, porte médio.")]
+    [InlineData("Uma mulher de aproximadamente 1,65 m.", "Uma mulher com aproximadamente 1,65 m.")]
+    [InlineData("Um homem de 1,80 metros de altura.", "Um homem com 1,80 metros de altura.")]
+    [InlineData("Um homem alto de dois metros.", "Um homem alto com dois metros.")]
+    [InlineData("O indivíduo de mais de 180 cm.", "O indivíduo com mais de 180 cm.")]
+    [InlineData("Uma pessoa de menos de 70 kg.", "Uma pessoa com menos de 70 kg.")]
+    [InlineData("Um rapaz de cerca de oitenta quilos.", "Um rapaz com cerca de oitenta quilos.")]
+    [InlineData("Uma criança de vinte e dois quilogramas de peso.", "Uma criança com vinte e dois quilogramas de peso.")]
+    [InlineData("Uma rapariga de 170 centímetros.", "Uma rapariga com 170 centímetros.")]
+    [InlineData("Os suspeitos de cerca de 1,80m.", "Os suspeitos com cerca de 1,80m.")]
+    [InlineData("SUSPEITA DE CERCA DE 1,70M.", "SUSPEITA COM CERCA DE 1,70M.")]
+    [InlineData("<i>Suspeito de cerca de\n1,80m, porte médio.</i>", "<i>Suspeito com cerca de\n1,80m, porte médio.</i>")]
+    [InlineData("Homem de 1,80m e 80 kg.", "Homem com 1,80m e 80 kg.")]
+    [InlineData("Mulher de cerca de 60 kg, cabelo castanho.", "Mulher com cerca de 60 kg, cabelo castanho.")]
+    public void PhysicalDescriptionsUseComForMeasurements(string source, string expected)
+    {
+        Assert.Equal(expected, Converter.Convert(source));
+        Assert.Equal(expected, Converter.Convert(expected));
+        Assert.Equal(source, new PortugueseConverter(new ConversionOptions(Colloquial: false)).Convert(source));
+        Assert.Equal(source, new PortugueseConverter(new ConversionOptions(DisabledRules: "physical-descriptions")).Convert(source));
+        var trace = new List<RuleChange>();
+        Assert.Equal(expected, Converter.Convert(source, trace: trace));
+        Assert.Contains(trace, r => r.Id == "physical-descriptions");
+    }
+
+    [Theory]
+    [InlineData("Um muro de cerca de dois metros.")]
+    [InlineData("Uma mesa de 1,80m.")]
+    [InlineData("Um suspeito de cerca de 30 anos.")]
+    [InlineData("Uma mulher de cabelos castanhos.")]
+    [InlineData("Um homem de palavra.")]
+    [InlineData("Suspeito de tráfico de droga.")]
+    [InlineData("O homem de cerca de dois milhões.")]
+    [InlineData("O homem de 1,80 milhões de euros.")]
+    [InlineData("Uma pessoa de 70 kg de carga.")]
+    [InlineData("Um homem com cerca de 1,80m.")]
+    [InlineData("Um homem de uma família de quatro pessoas.")]
+    [InlineData("Uma mulher de cerca de 1,70 milhas de distância.")]
+    [InlineData("Uma dose de 80 mg.")]
+    public void PhysicalDescriptionsPreserveOtherDeComplements(string source) =>
+        Assert.Equal(source, Converter.Convert(source));
+
+    [Theory]
     [InlineData("Você lembra o que aconteceu?", "Lembras-te do que aconteceu?")]
     [InlineData("Eu lembro o nome.", "Eu lembro-me do nome.")]
     [InlineData("Ela lembra aquilo que disse.", "Ela lembra-se daquilo que disse.")]

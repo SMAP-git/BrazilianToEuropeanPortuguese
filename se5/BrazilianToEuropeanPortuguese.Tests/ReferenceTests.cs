@@ -1,5 +1,6 @@
 using System.Text;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.VisualTree;
 using SubtitleEdit.Plugins.BrazilianToEuropeanPortuguese;
 using SubtitleEdit.Plugins.Shared;
@@ -496,6 +497,86 @@ public sealed class ReferenceTests(ITestOutputHelper output)
             repeatedWindow.LoadReferenceAsync(english).GetAwaiter().GetResult();
             Assert.All(repeatedWindow.Proposals, p => Assert.DoesNotContain("Old reference result.", p.ReviewNote ?? ""));
 
+            var filterWindow = new MainWindow(new PluginRequest
+            {
+                SettingsVersion = ConversionOptions.Version,
+                Settings = new ConversionOptions(UseReference: false).ToJson(),
+                Subtitle = new PluginSubtitle
+                {
+                    Format = "SubRip",
+                    SubRip = "1\n00:00:01,000 --> 00:00:04,000\nO trem chegou.\n\n" +
+                             "2\n00:00:05,000 --> 00:00:07,000\nBom dia.\n\n" +
+                             "3\n00:00:08,000 --> 00:00:10,000\nBoa noite.\n\n" +
+                             "4\n00:00:11,000 --> 00:00:13,000\nAté amanhã.\n",
+                },
+            });
+            filterWindow.ApplyCheckResults(new[]
+            {
+                new CheckLine(1, "Bom dia.", "Bom dia.", "O comboio chegou.", null),
+                new CheckLine(2, "Boa noite.", "Boa noite.", "Bom dia.", null),
+                new CheckLine(3, "Até amanhã.", "Até amanhã.", "Boa noite.", null),
+            }, new Dictionary<int, CheckResult>
+            {
+                [1] = new("Bom dia.", "MiniLM: check the translation."),
+                [2] = new("Boa noite!", "Gervásio chose an alternative."),
+                [3] = new("Até amanhã.", "Review this wording."),
+            });
+            filterWindow.Show();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            var filterNames = new[] { "RuleBasedFilter", "MiniLmFilter", "JudgeFilter", "OtherReviewFilter", "ManualEditFilter" };
+            Assert.All(filterNames, name => Assert.True(filterWindow.FindControl<ToggleButton>(name)!.IsChecked));
+            Assert.Equal(4, filterWindow.Proposals.Count);
+            Assert.All(filterWindow.Proposals, p => Assert.True(p.VisibleInReview));
+            void SetFilter(string name, bool enabled)
+            {
+                var button = filterWindow.FindControl<ToggleButton>(name)!;
+                button.IsChecked = enabled;
+                button.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            }
+            foreach (var name in filterNames) SetFilter(name, false);
+            Assert.All(filterWindow.Proposals, p => Assert.False(p.VisibleInReview));
+            Assert.Contains("Showing 0 of 4", filterWindow.FindControl<TextBlock>("SummaryLabel")!.Text);
+            Assert.True(filterWindow.FindControl<Button>("ApplyButton")!.IsEnabled);
+            var selectionButtons = filterWindow.FindControl<Control>("SelectButtons")!.GetVisualDescendants().OfType<Button>();
+            Assert.Single(selectionButtons, b => Equals(b.Content, "Select none"))
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Assert.All(filterWindow.Proposals, p => Assert.False(p.Include));
+            Assert.Single(selectionButtons, b => Equals(b.Content, "Select all"))
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Assert.All(filterWindow.Proposals, p => Assert.Equal(p.IsChange, p.Include));
+            Assert.All(filterWindow.Proposals, p => Assert.False(p.VisibleInReview));
+            SetFilter("RuleBasedFilter", true);
+            Assert.Equal(0, Assert.Single(filterWindow.Proposals, p => p.VisibleInReview).LineIndex);
+            SetFilter("RuleBasedFilter", false);
+            SetFilter("MiniLmFilter", true);
+            var miniReview = Assert.Single(filterWindow.Proposals, p => p.VisibleInReview);
+            Assert.Equal(1, miniReview.LineIndex);
+            miniReview.ConvertedText = "Bom dia!";
+            miniReview.Include = false;
+            SetFilter("MiniLmFilter", false);
+            SetFilter("ManualEditFilter", true);
+            Assert.Same(miniReview, Assert.Single(filterWindow.Proposals, p => p.VisibleInReview));
+            Assert.False(miniReview.Include);
+            SetFilter("MiniLmFilter", true);
+            SetFilter("ManualEditFilter", false);
+            Assert.True(miniReview.VisibleInReview);
+            Assert.Equal("Bom dia!", miniReview.ConvertedText);
+            SetFilter("MiniLmFilter", false);
+            SetFilter("JudgeFilter", true);
+            Assert.Equal(2, Assert.Single(filterWindow.Proposals, p => p.VisibleInReview).LineIndex);
+            SetFilter("JudgeFilter", false);
+            SetFilter("OtherReviewFilter", true);
+            Assert.Equal(3, Assert.Single(filterWindow.Proposals, p => p.VisibleInReview).LineIndex);
+            var visibleBorders = filterWindow.FindControl<ItemsControl>("ChangesList")!.GetVisualDescendants()
+                .OfType<Border>().Where(b => b.DataContext is ChangeProposal && b.Padding == new Avalonia.Thickness(8, 6));
+            Assert.Equal(4, visibleBorders.Count());
+            Assert.Single(visibleBorders, b => b.IsVisible);
+            filterWindow.FindControl<CheckBox>("VocabularyCheck")!.IsChecked = false;
+            Assert.All(filterNames, name => Assert.Equal(name == "OtherReviewFilter",
+                filterWindow.FindControl<ToggleButton>(name)!.IsChecked == true));
+            filterWindow.Close();
+
             var screenshotWindow = new MainWindow(new PluginRequest
             {
                 SettingsVersion = ConversionOptions.Version,
@@ -681,6 +762,43 @@ public sealed class ReferenceTests(ITestOutputHelper output)
             Assert.False(configureWindow.FindControl<Button>("SettingsToggleButton")!.IsVisible);
             Assert.False(configureWindow.FindControl<Expander>("ReviewTools")!.IsVisible);
             Assert.Equal(0, configureWindow.FindControl<Grid>("ReviewLayoutPanels")!.ColumnDefinitions[0].Width.Value);
+            var physicalWindow = new MainWindow(new PluginRequest
+            {
+                SettingsVersion = ConversionOptions.Version,
+                Settings = new ConversionOptions(UseReference: false).ToJson(),
+                Subtitle = new PluginSubtitle
+                {
+                    Format = "SubRip",
+                    SubRip = "1\n00:00:01,000 --> 00:00:04,000\nSuspeito de cerca de 1,80m, porte médio.\n",
+                },
+            });
+            physicalWindow.ApplyCheckResults(new[]
+            {
+                new CheckLine(0, "Suspeito de cerca de 1,80m, porte médio.",
+                    "Suspeito com cerca de 1,80m, porte médio.", null, null),
+            }, new Dictionary<int, CheckResult>
+            {
+                [0] = new("Suspeito com cerca de 1,80m, porte médio.", "MiniLM: check the translation."),
+            });
+            var physicalReview = Assert.Single(physicalWindow.Proposals);
+            Assert.Equal("Suspeito com cerca de 1,80m, porte médio.", physicalReview.ConvertedText);
+            Assert.Contains(physicalReview.Rules, r => r.Id == "physical-descriptions");
+            Assert.Contains("MiniLM:", physicalReview.ReviewNote);
+            physicalWindow.Show();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            var physicalCheckbox = Assert.Single(physicalWindow.FindControl<ItemsControl>("ChangesList")!
+                .GetVisualDescendants().OfType<CheckBox>(),
+                c => Avalonia.Automation.AutomationProperties.GetName(c) == "Include text change");
+            Assert.True(physicalCheckbox.IsVisible);
+            Assert.True(physicalCheckbox.IsEnabled);
+            Assert.True(physicalCheckbox.IsChecked);
+            physicalCheckbox.IsChecked = false;
+            Assert.False(physicalReview.Include);
+            Assert.False(physicalWindow.FindControl<Button>("ApplyButton")!.IsEnabled);
+            physicalCheckbox.IsChecked = true;
+            Assert.True(physicalReview.Include);
+            Assert.True(physicalWindow.FindControl<Button>("ApplyButton")!.IsEnabled);
+            physicalWindow.Close();
             var warningsWindow = new MainWindow(new PluginRequest
             {
                 SettingsVersion = ConversionOptions.Version,
@@ -698,6 +816,37 @@ public sealed class ReferenceTests(ITestOutputHelper output)
             var layoutReview = Assert.Single(warningsWindow.Proposals);
             Assert.False(layoutReview.IsChange);
             Assert.Contains("Layout:", layoutReview.ReviewNote);
+            warningsWindow.Show();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            var warningRows = warningsWindow.FindControl<ItemsControl>("ChangesList")!;
+            var warningCheckbox = Assert.Single(warningRows.GetVisualDescendants().OfType<CheckBox>(),
+                c => Avalonia.Automation.AutomationProperties.GetName(c) == "Include text change");
+            var originalLabel = Assert.Single(warningRows.GetVisualDescendants().OfType<TextBlock>(),
+                t => t.Text == "PT-BR: " + layoutReview.OriginalText);
+            Assert.True(originalLabel.IsVisible);
+            Assert.True(warningCheckbox.IsVisible);
+            Assert.False(warningCheckbox.IsEnabled);
+            Assert.False(warningCheckbox.IsChecked);
+            Assert.Contains("text is unchanged", ToolTip.GetTip(warningCheckbox)!.ToString());
+            var warningEditor = warningRows.GetVisualDescendants().OfType<TextBox>()
+                .First(t => t.Text == layoutReview.ConvertedText);
+            warningEditor.Text = "Esta linha foi revista.";
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            Assert.True(warningCheckbox.IsEnabled);
+            Assert.True(warningCheckbox.IsChecked);
+            Assert.Equal("Esta linha foi revista.", layoutReview.ConvertedText);
+            warningCheckbox.IsChecked = false;
+            Assert.False(layoutReview.Include);
+            Assert.False(warningsWindow.FindControl<Button>("ApplyButton")!.IsEnabled);
+            warningCheckbox.IsChecked = true;
+            Assert.True(layoutReview.Include);
+            Assert.True(warningsWindow.FindControl<Button>("ApplyButton")!.IsEnabled);
+            warningEditor.Text = layoutReview.OriginalText;
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            Assert.False(warningCheckbox.IsEnabled);
+            Assert.False(warningCheckbox.IsChecked);
+            Assert.True(originalLabel.IsVisible);
+            warningsWindow.Close();
             warnings.IsChecked = false;
             Assert.Empty(warningsWindow.Proposals);
         }

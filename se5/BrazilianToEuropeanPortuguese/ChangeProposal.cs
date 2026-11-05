@@ -2,11 +2,23 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace SubtitleEdit.Plugins.BrazilianToEuropeanPortuguese;
 
+[Flags]
+public enum FindingType
+{
+    None = 0,
+    RuleBased = 1,
+    MiniLm = 2,
+    Judge = 4,
+    OtherReview = 8,
+    ManualEdit = 16,
+}
+
 public partial class ChangeProposal : ObservableObject
 {
     [ObservableProperty] private bool _include;
     [ObservableProperty] private bool _includeLayout = true;
     [ObservableProperty] private string _expectedText = "";
+    [ObservableProperty] private bool _visibleInReview = true;
 
     public int LineIndex { get; }
     public string LineNumber => (LineIndex + 1).ToString();
@@ -45,6 +57,22 @@ public partial class ChangeProposal : ObservableObject
     public string ReviewNote => string.Join("\n", new[] { _reviewNote, IncludeLayout ? _wrappedLayoutNote : _languageLayoutNote }
         .Where(n => n.Length > 0));
     public bool HasReview => ReviewNote.Length > 0;
+    public FindingType FindingTypes
+    {
+        get
+        {
+            var types = FindingType.None;
+            if (Rules.Any(r => r.Id != "local-judge") ||
+                Rules.Count == 0 && (OriginalText != LanguageText || HasLayoutChange))
+                types |= FindingType.RuleBased;
+            if (Rules.Any(r => r.Id == "local-judge")) types |= FindingType.Judge;
+            foreach (var note in ReviewNote.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                types |= note.StartsWith("MiniLM", StringComparison.Ordinal) ? FindingType.MiniLm :
+                    note.StartsWith("Gervásio", StringComparison.Ordinal) ? FindingType.Judge : FindingType.OtherReview;
+            if (_edited != null) types |= FindingType.ManualEdit;
+            return types == FindingType.None ? FindingType.OtherReview : types;
+        }
+    }
     /// <summary>False for review-only lines: there is nothing to apply.</summary>
     public bool IsChange => OriginalText != LanguageText || OriginalText != WrappedText || _edited != null && _edited != OriginalText;
 

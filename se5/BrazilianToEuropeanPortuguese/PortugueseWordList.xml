@@ -28,6 +28,159 @@
   <Word br="emprego de meio período" pt="emprego a tempo parcial" />
   <Word br="trabalho de tempo integral" pt="trabalho a tempo inteiro" />
   <Word br="emprego de tempo integral" pt="emprego a tempo inteiro" />
+  <!-- Reviewed base equivalences from the larger study guide. -->
+  <Word br="varal de roupa" pt="estendal de roupa" />
+  <Word br="varais de roupa" pt="estendais de roupa" />
+  <Word br="pregador de roupa" pt="mola da roupa" g="f" />
+  <Word br="pregadores de roupa" pt="molas da roupa" g="f" />
+  <Word br="marcha à ré" pt="marcha-atrás" />
+  <Word br="internação" pt="internamento" g="m" />
+  <Word br="internações" pt="internamentos" g="m" />
+  <Word br="exame de sangue" pt="análise ao sangue" g="f" />
+  <Word br="exames de sangue" pt="análises ao sangue" g="f" />
+  <Word br="coleta de sangue" pt="colheita de sangue" />
+  <Word br="coletas de sangue" pt="colheitas de sangue" />
+  <Word br="efeito colateral" pt="efeito secundário" />
+  <Word br="efeitos colaterais" pt="efeitos secundários" />
+  <Word br="clareamento dental" pt="branqueamento dentário" />
+  <Word br="shampoo" pt="champô" />
+  <Word br="shampoos" pt="champôs" />
+  <Word br="desodorante" pt="desodorizante" />
+  <Word br="desodorantes" pt="desodorizantes" />
+  <Word br="demaquilante" pt="desmaquilhante" />
+  <Word br="demaquilantes" pt="desmaquilhantes" />
+  <Word br="cílios postiços" pt="pestanas postiças" g="f" />
+  <Word br="máscara de cílios" pt="máscara de pestanas" />
+  <Word br="pochete" pt="bolsa de cintura" />
+  <Word br="pochetes" pt="bolsas de cintura" />
+  <Word br="cortador de grama" pt="corta-relva" />
+  <Word br="cortadores de grama" pt="corta-relvas" />
+  <Word br="carrapato" pt="carraça" g="f" />
+  <Word br="carrapatos" pt="carraças" g="f" />
+  <Word br="pernilongo" pt="mosquito" />
+  <Word br="pernilongos" pt="mosquitos" />
+  <Word br="salsinha" pt="salsa" />
+  <Word br="papel-toalha" pt="papel de cozinha" />
+  <Word br="papel alumínio" pt="papel de alumínio" />
+  <Word br="filme plástico" pt="película aderente" g="f" />
+  <Word br="mixer de mão" pt="varinha mágica" g="f" />
+  <Word br="secadora de roupa" pt="máquina de secar roupa" />
+  <Word br="secadoras de roupa" pt="máquinas de secar roupa" />
+  <Word br="pendrive" pt="pen USB" g="f" />
+  <Word br="pendrives" pt="pens USB" g="f" />
+  <Word br="roteador" pt="router" />
+  <Word br="roteadores" pt="routers" />
+  <Word br="arquivo SRT" pt="ficheiro SRT" />
+  <Word br="arquivos SRT" pt="ficheiros SRT" />
+  <Word br="roteirista" pt="argumentista" />
+  <Word br="roteiristas" pt="argumentistas" />
+  <Word br="pré-estreia" pt="ante-estreia" />
+  <Word br="pré-estreias" pt="ante-estreias" />
+  <Word br="doutorado" pt="doutoramento" det="m" />
+  <Word br="doutorados" pt="doutoramentos" det="m" />
+  <Word br="volta às aulas" pt="regresso às aulas" g="m" />
+  <Word br="kitnet" pt="estúdio" g="m" />
+  <Word br="kitnets" pt="estúdios" g="m" />
+  <Word br="com frete grátis" pt="com portes grátis" />
+  <Word br="contracheque" pt="recibo de vencimento" />
+  <Word br="contracheques" pt="recibos de vencimento" />
+  <Word br="interfone" pt="intercomunicador" />
+  <Word br="interfones" pt="intercomunicadores" />
+  <Word br="plugue" pt="ficha" g="f" />
+  <Word br="plugues" pt="fichas" g="f" />
+  <Word br="esmerilhadeira" pt="rebarbadora" />
+  <Word br="esmerilhadeiras" pt="rebarbadoras" />
+  <Word br="lixadeira" pt="lixadora" />
+  <Word br="lixadeiras" pt="lixadoras" />
+  <Word br="parafusadeira" pt="aparafusadora" />
+  <Word br="parafusadeiras" pt="aparafusadoras" />
+  <Word br="chave catraca" pt="chave de roquete" />
+  <Word br="chaves catraca" pt="chaves de roquete" />
+  <Word br="massa corrida" pt="massa de barramento" />
+  <Word br="calha de chuva" pt="caleira" />
+  <Word br="calhas de chuva" pt="caleiras" />
+  <Word br="zoneamento" pt="zonamento" />
+  <Word br="zoneamentos" pt="zonamentos" />
+  <Word br="laudo técnico" pt="relatório técnico" />
+  <Word br="laudos técnicos" pt="relatórios técnicos" />
+  <Word br="memorial descritivo" pt="memória descritiva" g="f" />
+  <Word br="memoriais descritivos" pt="memórias descritivas" g="f" />
+  <Word br="chupeta" pt="chucha" />
+  <Word br="chupetas" pt="chuchas" />
+  <Word br="babador" pt="babete" />
+  <Word br="babadores" pt="babetes" />
+  <Word br="lenço umedecido" pt="toalhete húmido" />
+  <Word br="lenços umedecidos" pt="toalhetes húmidos" />
+  <Word br="prontuário médico" pt="processo clínico" />
+  <Word br="prontuários médicos" pt="processos clínicos" />
+  <Word br="consulta de retorno" pt="consulta de seguimento" />
+  <Word br="consultas de retorno" pt="consultas de seguimento" />
+  <Word br="superdosagem" pt="sobredosagem" />
+  <Word br="superdosagens" pt="sobredosagens" />
+  <Word br="triglicerídeos" pt="triglicéridos" />
+  <Word br="superdotação" pt="sobredotação" />
+  <Word br="avaliação somativa" pt="avaliação sumativa" />
+  <Word br="avaliações somativas" pt="avaliações sumativas" />
+  <Word br="evasão escolar" pt="abandono escolar" g="m" />
+  <Word br="centroavante" pt="ponta de lança" />
+  <Word br="centroavantes" pt="pontas de lança" />
+  <Word br="oitavas de final" pt="oitavos de final" g="m" />
+  <Word br="quartas de final" pt="quartos de final" g="m" />
+  <Word br="semifinal" pt="meia-final" />
+  <Word br="semifinais" pt="meias-finais" />
+  <Word br="jogo de ida" pt="jogo da primeira mão" />
+  <Word br="jogos de ida" pt="jogos da primeira mão" />
+  <Word br="jogo de volta" pt="jogo da segunda mão" />
+  <Word br="jogos de volta" pt="jogos da segunda mão" />
+  <Word br="banco de reservas" pt="banco de suplentes" />
+  <Word br="bancos de reservas" pt="bancos de suplentes" />
+  <Word br="pré-temporada" pt="pré-época" />
+  <Word br="pré-temporadas" pt="pré-épocas" />
+  <Word br="handebol" pt="andebol" />
+  <Word br="bicicleta ergométrica" pt="bicicleta estática" />
+  <Word br="bicicletas ergométricas" pt="bicicletas estáticas" />
+  <Word br="carboidrato" pt="hidrato de carbono" />
+  <Word br="carboidratos" pt="hidratos de carbono" />
+  <Word br="alho-poró" pt="alho-francês" />
+  <Word br="alhos-porós" pt="alhos-franceses" />
+  <Word br="brócolis" pt="brócolos" />
+  <Word br="açúcar mascavo" pt="açúcar mascavado" />
+  <Word br="fermento biológico" pt="fermento de padeiro" />
+  <Word br="fermento químico" pt="fermento em pó" />
+  <Word br="cupom de desconto" pt="cupão de desconto" />
+  <Word br="cupons de desconto" pt="cupões de desconto" />
+  <Word br="marca-texto" pt="marcador fluorescente" />
+  <Word br="marca-textos" pt="marcadores fluorescentes" />
+  <Word br="canetinha" pt="caneta de feltro" />
+  <Word br="canetinhas" pt="canetas de feltro" />
+  <Word br="giz de cera" pt="lápis de cera" />
+  <!-- Reviewed vocabulary/verb workbook: specific senses, not a literal import. -->
+  <Word br="sacola" pt="saco" g="m" />
+  <Word br="sacolas" pt="sacos" g="m" />
+  <Word br="shorts" pt="calções" />
+  <Word br="aipim" pt="mandioca" g="f" />
+  <Word br="misto-quente" pt="tosta mista" g="f" />
+  <Word br="mistos-quentes" pt="tostas mistas" g="f" />
+  <Word br="chave de fenda" pt="chave de fendas" />
+  <Word br="chaves de fenda" pt="chaves de fendas" />
+  <Word br="arruela" pt="anilha" />
+  <Word br="arruelas" pt="anilhas" />
+  <Word br="furadeira" pt="berbequim" g="m" />
+  <Word br="furadeiras" pt="berbequins" g="m" />
+  <Word br="embreagem" pt="embraiagem" />
+  <Word br="embreagens" pt="embraiagens" />
+  <Word br="porca borboleta" pt="porca de orelhas" />
+  <Word br="porcas borboleta" pt="porcas de orelhas" />
+  <Word br="porcas borboletas" pt="porcas de orelhas" />
+  <Word br="torque de aperto" pt="binário de aperto" />
+  <Word br="torques de aperto" pt="binários de aperto" />
+  <Verb br="rosquear" pt="enroscar" />
+  <Verb br="parafusar" pt="aparafusar" />
+  <Verb br="desparafusar" pt="desaparafusar" />
+  <Verb br="desengraxar" pt="desengordurar" />
+  <Verb br="destravar" pt="desbloquear" />
+  <Verb br="afrouxar" pt="desapertar" after="(?:(?:o|a|os|as|um|uma|uns|umas|este|esta|estes|estas|esse|essa|esses|essas)\s+)?(?:parafusos?|porcas?|tampas?|cintos?|cintos?\s+de\s+segurança)" />
+  <Verb br="engraxar" pt="lubrificar" after="(?:(?:o|a|os|as|um|uma|uns|umas|este|esta|estes|estas|esse|essa|esses|essas)\s+)?(?:peças?|mecanismos?|engrenagens?|eixos?|rolamentos?)" />
   <!-- ===================== Brazilian slang ===================== -->
   <Word br="doideira" pt="loucura" />
   <Word br="doideiras" pt="loucuras" />
@@ -44,6 +197,32 @@
   <Word br="mensalidade da faculdade" pt="propina" />
   <Word br="mensalidades da faculdade" pt="propinas" />
   <Word br="sunga" pt="slip de banho" g="m" />
+  <!-- Specialist sportswear: qualified senses, not blanket changes to collants or uniforms. -->
+  <Word br="leotard" pt="maillot" g="m" />
+  <Word br="leotards" pt="maillots" g="m" />
+  <Word br="maiô de ginástica" pt="maillot de ginástica" g="m" />
+  <Word br="maiôs de ginástica" pt="maillots de ginástica" g="m" />
+  <Word br="maiô de balé" pt="maillot de ballet" g="m" />
+  <Word br="maiôs de balé" pt="maillots de ballet" g="m" />
+  <Word br="camisa polo" pt="polo" g="m" />
+  <Word br="camisas polo" pt="polos" g="m" />
+  <Word br="camiseta polo" pt="polo" g="m" />
+  <Word br="camisetas polo" pt="polos" g="m" />
+  <Word br="camisa de golfe" pt="polo de golfe" g="m" />
+  <Word br="camisas de golfe" pt="polos de golfe" g="m" />
+  <Word br="calças de hipismo" pt="calças de equitação" />
+  <Word br="botas de hipismo" pt="botas de equitação" />
+  <Word br="capacete de hipismo" pt="toque de equitação" />
+  <Word br="capacetes de hipismo" pt="toques de equitação" />
+  <Word br="casaca de hipismo" pt="casaca de equitação" />
+  <Word br="casacas de hipismo" pt="casacas de equitação" />
+  <Word br="camisa de ciclismo" pt="camisola de ciclismo" />
+  <Word br="camisas de ciclismo" pt="camisolas de ciclismo" />
+  <Word br="bermudas de ciclismo" pt="calções de ciclismo" g="m" />
+  <Word br="macacão de mergulho" pt="fato de mergulho" />
+  <Word br="macacões de mergulho" pt="fatos de mergulho" />
+  <Word br="sutiã esportivo" pt="soutien desportivo" />
+  <Word br="sutiãs esportivos" pt="soutiens desportivos" />
   <Word br="sungas" pt="slips de banho" g="m" />
   <Word br="meias-calças" pt="collants" g="m" />
   <Verb br="paquerar" pt="engatar" />
@@ -294,6 +473,10 @@
   <Verb br="arrumar" pt="arranjar" after="emprego|trabalho|dinheiro|namorado|namorada|tempo|confusão|problema|problemas|briga|brigas|encrenca|encrencas|advogado|desculpa|desculpas|um\s+emprego|um\s+trabalho|um\s+namorado|uma\s+namorada|um\s+advogado|uma\s+desculpa|um\s+jeito|uma\s+maneira|uma\s+forma|um\s+lugar|uma\s+briga|uma\s+confusão|uma\s+encrenca|um\s+problema|sarna\s+para\s+se\s+coçar" />
 
   <Keep text="aposento" />
+  <Keep text="fato de treino" />
+  <Keep text="fatos de treino" />
+  <Keep text="fato de mergulho" />
+  <Keep text="fatos de mergulho" />
   <Keep text="aposentos" />
   <Keep text="cachorro-quente" />
   <Keep text="cachorros-quentes" />

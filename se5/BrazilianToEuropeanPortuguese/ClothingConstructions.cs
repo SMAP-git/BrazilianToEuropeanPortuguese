@@ -8,6 +8,49 @@ internal static class ClothingConstructions
     private const string Before = @"(?<![\p{L}\p{M}-])";
     private const string After = @"(?![\p{L}\p{M}-])";
     private const string Clothes = @"(?:jeans|calças|cuecas|cueca|calcinha|calcinhas|camisa|camisola|casaco|saia|vestido|sapatos|botas|meias|soutien|sutiã)";
+    private static readonly (Regex English, Regex Portuguese, string Singular, string Plural, char Gender)[] SportswearSenses =
+    {
+        (new(@"\bleotards?\b", Ci),
+            PortugueseConverter.CreateWordRegex(new[] { "fantasia", "fantasias", "collant", "collants", "colant", "colants" }),
+            "maillot", "maillots", 'm'),
+        (new(@"\btracksuits?\b", Ci), PortugueseConverter.CreateWordRegex(new[] { "agasalho", "agasalhos" }),
+            "fato de treino", "fatos de treino", 'm'),
+        (new(@"\bwet\s?suits?\b", Ci), PortugueseConverter.CreateWordRegex(new[] { "macacão", "macacões" }),
+            "fato de mergulho", "fatos de mergulho", 'm'),
+        (new(@"\b(?:golf|polo)\s+shirts?\b", Ci), PortugueseConverter.CreateWordRegex(new[] { "camisa", "camisas", "camiseta", "camisetas", "t-shirt", "t-shirts" }),
+            "polo", "polos", 'm'),
+        (new(@"\b(?:cycling|bicycle)\s+jerseys?\b", Ci),
+            PortugueseConverter.CreateWordRegex(new[] { "camisa", "camisas", "camiseta", "camisetas", "t-shirt", "t-shirts" }),
+            "camisola de ciclismo", "camisolas de ciclismo", 'f'),
+        (new(@"\b(?:riding|equestrian)\s+breeches\b|\bjodhpurs\b", Ci),
+            PortugueseConverter.CreateWordRegex(new[] { "culotes" }), "calças de equitação", "calças de equitação", 'f'),
+    };
+    private static readonly Regex EnglishGarments = new(
+        @"\b(?:leotards?|tracksuits?|wet\s?suits?|shirts?|jerseys?|breeches|jodhpurs|costumes?|dresses|" +
+        @"tights|trousers|pants|shorts|skirts?|coats?|jackets?|sweaters?|uniforms?|swimsuits?|bikinis?|bras?|boots?|shoes?)\b", Ci);
+
+    internal static string Sportswear(string text, ReferenceHint? reference, Func<string, bool> allow)
+    {
+        var english = reference?.EnglishText;
+        if (english == null) return text;
+        var senses = SportswearSenses.Where(s => s.English.IsMatch(english)).ToArray();
+        if (senses.Length != 1 || senses[0].English.Matches(english).Count != 1 ||
+            EnglishGarments.Matches(english).Count != 1) return text;
+        var sense = senses[0];
+        var matches = sense.Portuguese.Matches(text);
+        if (matches.Count != 1) return text;
+        return sense.Portuguese.Replace(text, m =>
+        {
+            var source = m.Groups["key"].Value;
+            if (!allow(source)) return m.Value;
+            var plural = source.EndsWith('s') || source.EndsWith('S');
+            if (plural != sense.English.Match(english).Value.EndsWith("s", StringComparison.OrdinalIgnoreCase)) return m.Value;
+            var target = plural ? sense.Plural : sense.Singular;
+            return PortugueseConverter.ReplaceWordEntry(m,
+                new PortugueseConverter.WordEntry(source, target, false, sense.Gender, null, null));
+        });
+    }
+
     private static readonly Dictionary<string, string> ThrowForms = BuildThrowForms();
     private static readonly Regex ThrowPerson = new(
         Before + @"(?:(?<precl>o|a|os|as)\s+)?(?<v>" + string.Join("|", ThrowForms.Keys.OrderByDescending(w => w.Length)) + @")" +

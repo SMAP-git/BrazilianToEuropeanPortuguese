@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
@@ -280,6 +281,7 @@ public partial class MainWindow : Window
         {
             proposal.PropertyChanged += OnProposalChanged;
         }
+        UpdateFindingFilters();
         UpdateSummary();
     }
 
@@ -450,6 +452,7 @@ public partial class MainWindow : Window
         }
         if (e.PropertyName is nameof(ChangeProposal.IncludeLayout) or nameof(ChangeProposal.ConvertedText))
         {
+            UpdateFindingFilters();
             UpdateSummary();
             if (Options.ValidateSpelling) _dictionaryStatus.Text = ValidationSummary();
         }
@@ -498,8 +501,29 @@ public partial class MainWindow : Window
         var total = _proposals.Count(p => p.IsChange);
         var selected = _proposals.Count(p => p.Include && p.ConvertedText != p.OriginalText);
         var review = _proposals.Count(p => p.HasReview);
-        _summaryLabel.Text = $"{selected} of {total} change(s) selected." + (review > 0 ? $" {review} to review." : string.Empty);
+        _summaryLabel.Text = $"{selected} of {total} change(s) selected." + (review > 0 ? $" {review} to review." : string.Empty) +
+            $" Showing {_proposals.Count(p => p.VisibleInReview)} of {_proposals.Count} row(s).";
         _applyButton.IsEnabled = selected > 0;
+    }
+
+    private void OnFindingFilterChanged(object? sender, RoutedEventArgs e)
+    {
+        UpdateFindingFilters();
+        UpdateSummary();
+    }
+
+    private void UpdateFindingFilters()
+    {
+        var enabled = FindingType.None;
+        foreach (var (name, type) in new[]
+        {
+            ("RuleBasedFilter", FindingType.RuleBased), ("MiniLmFilter", FindingType.MiniLm),
+            ("JudgeFilter", FindingType.Judge), ("OtherReviewFilter", FindingType.OtherReview),
+            ("ManualEditFilter", FindingType.ManualEdit),
+        })
+            if (this.FindControl<ToggleButton>(name)!.IsChecked == true) enabled |= type;
+        foreach (var proposal in _proposals)
+            proposal.VisibleInReview = (proposal.FindingTypes & enabled) != 0;
     }
 
     private void OnSelectAll(object? sender, RoutedEventArgs e)

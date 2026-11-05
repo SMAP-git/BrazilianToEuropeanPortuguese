@@ -35,6 +35,7 @@ public sealed class PortugueseConverter
     private readonly Regex? _distantAgreementRegex;
     private readonly Dictionary<string, char> _changedGender = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, WordEntry> _words = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _localClothingWords = new(StringComparer.OrdinalIgnoreCase);
     private readonly Regex? _prefixRegex;
     private readonly Dictionary<string, string> _prefixes = new(StringComparer.OrdinalIgnoreCase);
     private readonly VerbVocabulary? _verbs;
@@ -57,6 +58,8 @@ public sealed class PortugueseConverter
         {
             foreach (var (br, pt) in localWordList.Words)
             {
+                _localClothingWords.Add(NormalizeSpaces(br));
+                _localClothingWords.Add(NormalizeSpaces(pt));
                 _words[NormalizeSpaces(br)] = new WordEntry(NormalizeSpaces(br), pt, false, null, null, null);
             }
         }
@@ -116,11 +119,7 @@ public sealed class PortugueseConverter
 
         if (_words.Count > 0)
         {
-            _wordRegex = new Regex(
-                "(?<det>" + NotWordBefore + "(?:" + Determiners.Pattern + @")\s+(?:(?:" + Determiners.Pattern + @")\s+)?)?" +
-                NotWordBefore + "(?<key>" + Alternation(_words.Keys) + ")" + NotWordAfter +
-                @"(?<adj>\s+(?:(?:está|estava|estão|estavam|é|era|são|eram|foi|foram|ficou|ficaram|parece|parecem|continua|continuam)\s+)?" + AgreeingAdjectiveChain + ")?",
-                Ci);
+            _wordRegex = CreateWordRegex(_words.Keys);
         }
 
         if (_prefixes.Count > 0)
@@ -667,6 +666,9 @@ public sealed class PortugueseConverter
         if (_options.Colloquial && _options.Vocabulary) s = ConversionConstructions.Idioms(s, reference);
         Track("reference-idioms", "Brazilian expressions and English-confirmed literal idioms");
 
+        if (_options.Colloquial && _options.Vocabulary) s = ConversionConstructions.SharedResidence(s, reference);
+        Track("shared-residence", "English-confirmed shared residence instead of neighbour paraphrases");
+
         if (_options.YouToTu)
         {
             s = YouToTuRules.Apply(s, previousText, reference);
@@ -724,6 +726,9 @@ public sealed class PortugueseConverter
                     a => NotAgreeing.Contains(a.Value) ? a.Value : SwapAdjectiveGender(a.Value, _changedGender[m.Groups["n"].Value])));
         }
         Track("word-list", "Word-list spelling/vocabulary and gender agreement");
+        if (_options.Vocabulary) s = ClothingConstructions.Sportswear(s, reference,
+            key => !_localClothingWords.Contains(NormalizeSpaces(key)));
+        Track("sports-clothing", "English-confirmed specialist clothing with gender agreement");
 
         if (_options.Pronouns)
         {
@@ -768,6 +773,9 @@ public sealed class PortugueseConverter
 
         if (_options.Colloquial) s = ConversionConstructions.NaturalWordOrder(s);
         Track("natural-word-order", "Habitual sempre after lexical verbs and recoverable progressive subjects");
+
+        if (_options.Colloquial) s = ConversionConstructions.PhysicalDescriptions(s);
+        Track("physical-descriptions", "Com in person height and weight descriptions");
 
         if (_options.Vocabulary && _options.Pronouns) s = ConversionConstructions.Complaints(s, informalConstructions);
         Track("construction-vocabulary", "Complement-qualified vocabulary senses");
@@ -1040,6 +1048,18 @@ public sealed class PortugueseConverter
             return m.Value;
         }
 
+        return ReplaceWordEntry(m, entry);
+    }
+
+    internal static Regex CreateWordRegex(IEnumerable<string> keys) => new(
+        "(?<det>" + NotWordBefore + "(?:" + Determiners.Pattern + @")\s+(?:(?:" + Determiners.Pattern + @")\s+)?)?" +
+        NotWordBefore + "(?<key>" + Alternation(keys) + ")" + NotWordAfter +
+        @"(?<adj>\s+(?:(?:está|estava|estão|estavam|é|era|são|eram|foi|foram|ficou|ficaram|parece|parecem|continua|continuam)\s+)?" +
+        AgreeingAdjectiveChain + ")?", Ci);
+
+    internal static string ReplaceWordEntry(Match m, WordEntry entry)
+    {
+        var keyText = m.Groups["key"].Value;
         var detText = m.Groups["det"].Value;
         var adjText = m.Groups["adj"].Value;
         var dets = Regex.Matches(detText, @"[\p{L}]+").Select(x => x.Value).ToList();

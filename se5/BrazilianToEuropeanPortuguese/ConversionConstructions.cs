@@ -61,6 +61,58 @@ internal static class ConversionConstructions
             m.Groups["link"].Value + m.Groups["space"].Value + m.Groups["verb"].Value);
     }
 
+    private const string MeasurementNumber = @"(?:\d+(?:[,.]\d+)?|(?:um|uma|dois|duas|três|quatro|cinco|seis|sete|oito|nove|" +
+        @"dez|onze|doze|treze|catorze|quinze|dezasseis|dezassete|dezoito|dezanove|vinte|trinta|quarenta|cinquenta|" +
+        @"sessenta|setenta|oitenta|noventa|cem|cento)(?:\s+e\s+(?:um|uma|dois|duas|três|quatro|cinco|seis|sete|oito|nove|" +
+        @"dez|vinte|trinta|quarenta|cinquenta|sessenta|setenta|oitenta|noventa)){0,2})";
+    private static readonly Regex PersonMeasurement = new(
+        Before + @"(?:suspeit[oa]s?|indivíduos?|homem|homens|mulher(?:es)?|rapa(?:z|zes|rigas?)|crianças?|" +
+        @"adolescentes?|adult[oa]s?|idos[oa]s?|menin[oa]s?|vítimas?|pessoas?|" +
+        @"sujeit[oa]s?)(?:\s+(?:branc[oa]s?|negr[oa]s?|moren[oa]s?|lour[oa]s?|alt[oa]s?|baix[oa]s?|magr[oa]s?|gord[oa]s?)){0,2}" +
+        @"\s+(?<pre>de)(?=\s+(?:(?:cerca\s+de|por\s+volta\s+de|mais\s+de|menos\s+de|aproximadamente|" +
+        @"sensivelmente|uns|umas)\s+)?" + MeasurementNumber + @"\s*(?:metros?|centímetros?|cm|m|quilogramas?|quilos?|kg)" +
+        @"(?![\p{L}\p{M}\d-])(?:\s+de\s+(?:altura|peso))?(?:\s*(?:$|[.,;:!?…]|\r?\n)|\s+(?:e|com)\b))", Ci);
+
+    public static string PhysicalDescriptions(string text) => PersonMeasurement.Replace(text, m =>
+        m.Value[..^m.Groups["pre"].Length] + CaseHelper.MatchCase(m.Groups["pre"].Value, "com"));
+
+    private static readonly Regex SharedResidenceReference = new(
+        @"^(?:(?:hey|hi|hello|well)[,!]?\s+)?we\s+(?<verb>live|lived)\s+" +
+        @"(?:on|in)\s+the\s+same\s+(?<place>floor|building|street|block|neighbou?rhood)[.!…]?$", Ci);
+    private static readonly Regex NeighbourResidence = new(
+        @"^(?<head>[\uE000-\uF8FF\s]*(?:(?:olá|ei|olha|bem)[,!]?\s+)?)" +
+        @"(?<clause>(?:(?:você|tu)\s+)?(?<present>é|és)\s+(?:[oa]\s+)?(?:meu|minha|noss[oa])\s+vizinh[oa]|" +
+        @"(?:eu\s+)?(?<present>sou)\s+(?:[oa]\s+)?(?:teu|tua|seu|sua|voss[oa])\s+vizinh[oa]|" +
+        @"(?:(?:nós)\s+)?(?<present>somos)\s+vizinh[oa]s|" +
+        @"(?:(?:você|tu)\s+)?(?<past>era|eras)\s+(?:[oa]\s+)?(?:meu|minha|noss[oa])\s+vizinh[oa]|" +
+        @"(?:eu\s+)?(?<past>era)\s+(?:[oa]\s+)?(?:teu|tua|seu|sua|voss[oa])\s+vizinh[oa]|" +
+        @"(?:(?:nós)\s+)?(?<past>éramos)\s+vizinh[oa]s)" +
+        @"\s+(?<place>de\s+andar|d[oa]\s+mesm[oa]\s+(?:andar|prédio|edifício|rua|quarteirão|bairro))" +
+        @"(?<end>[.!…]?[\uE000-\uF8FF\s]*)$", Ci);
+
+    public static string SharedResidence(string text, ReferenceHint? reference)
+    {
+        var english = SharedResidenceReference.Match(reference?.EnglishText ?? "");
+        if (!english.Success) return text;
+        var place = english.Groups["place"].Value.ToLowerInvariant() switch
+        {
+            "floor" => ("andar", "no mesmo andar"),
+            "building" => ("prédio|edifício", "no mesmo edifício"),
+            "street" => ("rua", "na mesma rua"),
+            "block" => ("quarteirão", "no mesmo quarteirão"),
+            _ => ("bairro", "no mesmo bairro"),
+        };
+        var past = english.Groups["verb"].Value.Equals("lived", StringComparison.OrdinalIgnoreCase);
+        return NeighbourResidence.Replace(text, m =>
+        {
+            if (m.Groups["past"].Success != past ||
+                !Regex.IsMatch(m.Groups["place"].Value, @"\b(?:" + place.Item1 + @")$", Ci)) return m.Value;
+            var wording = (past ? "vivíamos " : "vivemos ") + place.Item2;
+            return m.Groups["head"].Value + CaseHelper.MatchCase(m.Groups["clause"].Value, wording) +
+                m.Groups["end"].Value;
+        });
+    }
+
     private static readonly Regex RememberClause = new(
         Before + @"(?<v>" + FinitePattern("lembrar") + @")(?:-(?<cl>me|te|se|nos|vos))?(?<space>\s+)" +
         @"(?<what>o\s+que|a\s+que|os\s+que|as\s+que|aquilo\s+que|isso|isto|aquilo)" + After, Ci);
@@ -261,12 +313,23 @@ internal static class ConversionConstructions
         Before + @"(?<v>" + Alternatives(Forms("acertar").Where((_, index) => index is not (35 or 36 or 37 or 38))) + @")\s+" +
         @"(?<det>a|o|as|os)\s+(?<part>cabeça|cara|rosto|testa|nuca|boca|nariz|queixo|olho|olhos|ouvido|ouvidos|orelha|orelhas|pescoço|garganta|peito|costas|barriga|estômago|ombro|ombros|braço|braços|perna|pernas|joelho|joelhos|mão|mãos|pé|pés)" +
         @"(?<owner>\s+d(?:e|o|a|os|as)\s+(?:ele|ela|eles|elas|mim|ti|nós|você|vocês|tu|outro(?:s|as)?(?:\s+\p{L}+){0,2}|mesm[oa]s?|rapaz|rapariga|tipo|gajo|homem|mulher|suspeit[oa]s?|agente|detetive|polícia|(?-i:\p{Lu})[\p{L}\p{M}'’-]*))?" + After, Ci);
+    private static readonly Dictionary<string, string> UploadFileForms = MapForms("subir", "carregar")
+        .Where(pair => pair.Key is not ("sube" or "subes" or "subem"))
+        .Concat(new Dictionary<string, string> { ["sobe"] = "carrega", ["sobes"] = "carregas", ["sobem"] = "carregam" })
+        .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
     private static readonly Dictionary<string, string> DigitalFileForms = MapForms("baixar", "descarregar")
-        .Concat(MapForms("salvar", "guardar")).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+        .Concat(MapForms("salvar", "guardar")).Concat(UploadFileForms)
+        .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
     private static readonly Regex DigitalFile = new(
         Before + @"(?<v>" + Alternatives(DigitalFileForms.Keys) + @")(?<space>\s+)" +
         @"(?<det>(?:(?:o|os|um|uns|este|estes|esse|esses|aquele|aqueles|meu|meus|teu|teus|seu|seus|novo|novos)\s+){0,3})" +
-        @"(?<noun>arquivos?)" + After, Ci);
+        @"(?<noun>arquivos?|ficheiros?|documentos?)" + After, Ci);
+    private static readonly Dictionary<string, string> DataEntryForms = MapForms("digitar", "introduzir")
+        .ToDictionary(pair => pair.Key, pair => pair.Key == "digita" ? "introduz" : pair.Value, StringComparer.OrdinalIgnoreCase);
+    private static readonly Regex DataEntry = new(
+        Before + @"(?<v>" + Alternatives(DataEntryForms.Keys) + @")(?=\s+" +
+        @"(?:(?:o|a|os|as|um|uma|uns|umas|este|esta|estes|estas|esse|essa|esses|essas)\s+)?" +
+        @"(?:senhas?|palavras?-passe|códigos?|dados|números?)" + After + ")", Ci);
 
     private static Dictionary<string, string> MapForms(string source, string target)
     {
@@ -322,10 +385,19 @@ internal static class ConversionConstructions
 
     public static string Vocabulary(string text, bool pronouns, bool informal)
     {
-        text = DigitalFile.Replace(text, m => CaseHelper.MatchCase(m.Groups["v"].Value, DigitalFileForms[m.Groups["v"].Value]) +
-            m.Groups["space"].Value + m.Groups["det"].Value +
-            CaseHelper.MatchCase(m.Groups["noun"].Value, m.Groups["noun"].Value.EndsWith("s", StringComparison.OrdinalIgnoreCase)
-                ? "ficheiros" : "ficheiro"));
+        text = DataEntry.Replace(text, m => CaseHelper.MatchCase(m.Value, DataEntryForms[m.Value]));
+        text = DigitalFile.Replace(text, m =>
+        {
+            var verb = m.Groups["v"].Value;
+            var noun = m.Groups["noun"].Value;
+            if (UploadFileForms.ContainsKey(verb) && noun.StartsWith("documento", StringComparison.OrdinalIgnoreCase) &&
+                !Regex.IsMatch(m.Result("$'"), @"^\s+(?:para|em|no|na)\s+(?:(?:o|a|um|uma)\s+)?(?:servidor|plataforma|site|nuvem|portal)\b", Ci))
+                return m.Value;
+            return CaseHelper.MatchCase(verb, DigitalFileForms[verb]) + m.Groups["space"].Value + m.Groups["det"].Value +
+                (noun.StartsWith("arquivo", StringComparison.OrdinalIgnoreCase)
+                    ? CaseHelper.MatchCase(noun, noun.EndsWith("s", StringComparison.OrdinalIgnoreCase)
+                        ? "ficheiros" : "ficheiro") : noun);
+        });
         if (pronouns)
         {
             text = Become.Replace(text, m => Reflexive(text, m,
@@ -407,6 +479,14 @@ internal static class ConversionConstructions
     }
 
     private static readonly Dictionary<string, string> ChatForms = MapForms("bater", "conversar");
+    private static readonly Dictionary<string, string> ClarifyDoubtForms = MapForms("tirar", "esclarecer");
+    private static readonly Regex ClarifyDoubt = new(
+        Before + @"(?<v>" + Alternatives(ClarifyDoubtForms.Keys) + @")(?<cl>-(?:me|te|lhe|lhes|nos))?" +
+        @"(?<space>\s+)(?<det>(?:(?:a|as|uma|umas|esta|estas|essa|essas|minha|minhas|tua|tuas|sua|suas)\s+)?)" +
+        @"(?<noun>dúvidas?)" + After, Ci);
+    private static readonly Regex MaybeSlang = new(Before + @"se(?<space>\s+)pá" + After, Ci);
+    private static readonly Regex LetsGoExpression = new(
+        @"(?<head>^(?:[-–—]\s*)?|[.!?]\s+)(?<phrase>vamos\s+nessa)(?=\s*[.!?…]*\s*$)", Ci);
     private static readonly Regex Chat = new(
         Before + @"(?<v>" + Alternatives(ChatForms.Keys) + @")(?<space>\s+)(?:um\s+)?papo" + After, Ci);
     private static readonly Dictionary<string, string> ExchangeIdeaForms = MapForms("trocar", "conversar");
@@ -462,6 +542,12 @@ internal static class ConversionConstructions
 
     public static string Idioms(string text, ReferenceHint? reference)
     {
+        text = ClarifyDoubt.Replace(text, m => CaseHelper.MatchCase(m.Groups["v"].Value, ClarifyDoubtForms[m.Groups["v"].Value]) +
+            m.Groups["cl"].Value + m.Groups["space"].Value + m.Groups["det"].Value + m.Groups["noun"].Value);
+        text = MaybeSlang.Replace(text, m => CaseHelper.MatchCase(m.Value,
+            "se" + m.Groups["space"].Value + "calhar"));
+        text = LetsGoExpression.Replace(text, m => m.Groups["head"].Value +
+            CaseHelper.MatchCase(m.Groups["phrase"].Value, "vamos a isso"));
         var english = reference?.EnglishText;
         if (english != null)
         {

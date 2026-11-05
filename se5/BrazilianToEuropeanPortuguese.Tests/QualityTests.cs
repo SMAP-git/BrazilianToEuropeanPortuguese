@@ -229,6 +229,32 @@ public sealed class QualityTests
     }
 
     [Fact]
+    public void FindingTypesDistinguishRulesModelsReviewsAndManualEdits()
+    {
+        var rules = new ChangeProposal(0, "A", "B", rules: new[] { new RuleChange("word-list", "Vocabulary") });
+        Assert.Equal(FindingType.RuleBased, rules.FindingTypes);
+        var mini = new ChangeProposal(1, "A", "A", reviewNote: "MiniLM (before the rules): check it.");
+        Assert.Equal(FindingType.MiniLm, mini.FindingTypes);
+        var judge = new ChangeProposal(2, "A", "B", reviewNote: "Gervásio chose an alternative.",
+            rules: new[] { new RuleChange("local-judge", "Model choice") });
+        Assert.Equal(FindingType.Judge, judge.FindingTypes);
+        var combined = new ChangeProposal(3, "A", "B",
+            reviewNote: "MiniLM: check it.\nGervásio chose an alternative.\nGrammar: check agreement.",
+            rules: new[] { new RuleChange("word-list", "Vocabulary") });
+        Assert.Equal(FindingType.RuleBased | FindingType.MiniLm | FindingType.Judge | FindingType.OtherReview,
+            combined.FindingTypes);
+        mini.ConvertedText = "Manual correction";
+        Assert.Equal(FindingType.MiniLm | FindingType.ManualEdit, mini.FindingTypes);
+        mini.ConvertedText = "A";
+        Assert.Equal(FindingType.MiniLm, mini.FindingTypes);
+        var layout = new ChangeProposal(4, "A", "A", wrappedText: "A\n", languageLayoutNote: "Layout: long line.");
+        Assert.Equal(FindingType.RuleBased, layout.FindingTypes);
+        layout.IncludeLayout = false;
+        Assert.Equal(FindingType.RuleBased | FindingType.OtherReview, layout.FindingTypes);
+        Assert.True(new ChangeProposal(5, "A", "A").VisibleInReview);
+    }
+
+    [Fact]
     public void LayoutCanBeRejectedWithoutRejectingLanguage()
     {
         var proposal = new ChangeProposal(0, "Estou no trem.", "Estou no comboio.", wrappedText: "Estou no\ncomboio.");

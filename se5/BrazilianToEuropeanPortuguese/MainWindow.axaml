@@ -33,9 +33,26 @@
         </Grid>
 
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,4">
-            <StackPanel Grid.Column="0" x:Name="SelectButtons" Orientation="Horizontal" Spacing="10">
-                <Button Content="Select all" Click="OnSelectAll" />
-                <Button Content="Select none" Click="OnSelectNone" />
+            <StackPanel Grid.Column="0" x:Name="SelectButtons" Spacing="6">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Button Content="Select all" Click="OnSelectAll"
+                            ToolTip.Tip="Select all corrections, including hidden rows." />
+                    <Button Content="Select none" Click="OnSelectNone"
+                            ToolTip.Tip="Deselect all corrections, including hidden rows." />
+                </StackPanel>
+                <WrapPanel ToolTip.Tip="Show matching finding types. Filtering does not change what Apply includes.">
+                    <TextBlock Text="Show:" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <ToggleButton x:Name="RuleBasedFilter" Content="Rule-based changes" IsChecked="True"
+                                  Click="OnFindingFilterChanged" Margin="0,0,6,4" />
+                    <ToggleButton x:Name="MiniLmFilter" Content="MiniLM warnings" IsChecked="True"
+                                  Click="OnFindingFilterChanged" Margin="0,0,6,4" />
+                    <ToggleButton x:Name="JudgeFilter" Content="Gervásio choices" IsChecked="True"
+                                  Click="OnFindingFilterChanged" Margin="0,0,6,4" />
+                    <ToggleButton x:Name="OtherReviewFilter" Content="Other review warnings" IsChecked="True"
+                                  Click="OnFindingFilterChanged" Margin="0,0,6,4" />
+                    <ToggleButton x:Name="ManualEditFilter" Content="Manual edits" IsChecked="True"
+                                  Click="OnFindingFilterChanged" Margin="0,0,6,4" />
+                </WrapPanel>
             </StackPanel>
             <Button Grid.Column="1"
                     x:Name="SettingsToggleButton"
@@ -262,11 +279,14 @@
             <ItemsControl x:Name="ChangesList">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="local:ChangeProposal">
-                        <Border BorderBrush="#22808080" BorderThickness="0,0,0,1" Padding="8,6">
+                        <Border BorderBrush="#22808080" BorderThickness="0,0,0,1" Padding="8,6"
+                                IsVisible="{Binding VisibleInReview}">
                         <Grid ColumnDefinitions="32,42,*,300">
                             <CheckBox Grid.Column="0"
                                       IsChecked="{Binding Include, Mode=TwoWay}"
-                                      IsVisible="{Binding IsChange}"
+                                      IsEnabled="{Binding IsChange}"
+                                      ToolTip.Tip="Include this text change. If disabled, the text is unchanged; edit the line to propose a correction."
+                                      AutomationProperties.Name="Include text change"
                                       VerticalAlignment="Top"
                                       Margin="0,2,0,0" />
                             <TextBlock Grid.Column="1"
@@ -276,8 +296,7 @@
                                        Margin="6,2,8,0"
                                        VerticalAlignment="Top" />
                             <StackPanel Grid.Column="2" Orientation="Vertical" Spacing="2" Margin="0,0,12,0">
-                                <TextBlock Text="{Binding OriginalText}"
-                                           IsVisible="{Binding IsChange}"
+                                <TextBlock Text="{Binding OriginalText, StringFormat='PT-BR: {0}'}"
                                            TextWrapping="Wrap"
                                            Opacity="0.55"
                                            FontSize="12" />

@@ -1,8 +1,9 @@
 # Brazilian to European Portuguese (Subtitle Edit 5 plugin)
 
-Version **1.2.4** adds reviewed vocabulary and expressions, English-idiom meaning
-checks, guarded subject agreement and habitual word order, context-specific review
-caching, and a collapsible settings area.
+Version **1.2.5** adds reviewed workbook vocabulary and verb constructions,
+English-confirmed specialist sportswear and shared-residence expressions,
+guarded physical descriptions, finding-type visibility filters, and clearer
+warning-only rows with the original PT-BR text always visible.
 
 Converts Brazilian Portuguese (pt-BR) subtitles to natural European Portuguese (pt-PT):
 spelling, vocabulary and grammar. Like *American to British*, it shows a checkable
@@ -81,6 +82,93 @@ preserves formatting, and respects **você → tu** and formal-address settings.
 The existing English *this/that* distinction still controls *isto/isso* separately.
 
 ### Verified expression-guide additions
+
+#### Larger study guide: reviewed integration
+
+`guia_2000_casos_pt_BR_para_pt_PT.xlsx` actually contains 717 base rows and
+5,414 practice rows, plus instructions and a category index. The practice rows
+mostly repeat eight metalinguistic templates (for example, saying that a term
+appears in conversation); they are not 5,414 independent subtitle translations.
+The base sheet is therefore used as a reviewed candidate list, not a runtime
+spreadsheet or automatically imported training/reference corpus.
+
+Some rows run in the wrong direction for this plugin (*fixe* → *legal*,
+*câmara* → *câmera*, *género* → *gênero*, *facto* → *fato*); others repeat
+existing rules or describe valid shared usage. These are not added as
+BR-to-PT replacements. English word glosses are not treated as aligned English
+subtitle sentences or fed into MiniLM as if they were contextual evidence.
+
+Verified missing vocabulary is added to the existing XML word list, with explicit
+plurals, qualified phrases and gender agreement where needed:
+
+| Area | Examples |
+|---|---|
+| Home and everyday objects | *pregador de roupa* → *mola da roupa*, *varal de roupa* → *estendal de roupa*, *filme plástico* → *película aderente*, *pochete* → *bolsa de cintura* |
+| Health and personal care | *exame de sangue* → *análise ao sangue*, *internação* → *internamento*, *efeito colateral* → *efeito secundário*, *superdosagem* → *sobredosagem*, *shampoo* → *champô* |
+| Technology and work | *pendrive* → *pen USB*, *roteador* → *router*, *arquivo SRT* → *ficheiro SRT*, *contracheque* → *recibo de vencimento*, *roteirista* → *argumentista* |
+| Tools and construction | *esmerilhadeira* → *rebarbadora*, *lixadeira* → *lixadora*, *parafusadeira* → *aparafusadora*, *memorial descritivo* → *memória descritiva* |
+| Sport | *centroavante* → *ponta de lança*, *quartas de final* → *quartos de final*, *banco de reservas* → *banco de suplentes*, *handebol* → *andebol* |
+| Food and school supplies | *carboidrato* → *hidrato de carbono*, *alho-poró* → *alho-francês*, *fermento biológico* → *fermento de padeiro*, *canetinha* → *caneta de feltro* |
+
+The existing `reference-idioms` stage also handles inflected *tirar uma/as
+dúvida(s)* → *esclarecer uma/as dúvida(s)*, informal *se pá* → *se calhar*,
+and complete-utterance *vamos nessa!* → *vamos a isso!*. It keeps literal
+*vamos nessa carrinha* unchanged. Expressions require **Colloquial** and
+**Vocabulary**; ordinary word-list additions require **Vocabulary**.
+
+Context-sensitive candidates are deliberately not imported wholesale:
+*lagartixa* is not necessarily an *osga*; a *copo americano* has a specific
+capacity; *folha sulfite* does not imply A4; *graduação* is not always a
+Portuguese licenciatura; SUS/SNS, SAMU/INEM, Correios/CTT and legal institutions
+are not interchangeable identities. Biological *cílios* remain unchanged;
+only cosmetic phrases such as *cílios postiços* are mapped to *pestanas*.
+Equipment described as *quebrado* is not assumed to be merely *avariado*.
+Further ambiguous idioms need genuine full-sentence examples, meaning-specific
+exceptions and, where possible, the corresponding English cue.
+
+`StudyGuideTests` independently specifies expected output for the new vocabulary,
+plurals, expressions, exclusions, casing, subtitle tags/line breaks, option
+switches, rerun stability and batch cue timestamps.
+
+#### Vocabulary and verb workbook
+
+The workbook `vocabulario_verbos_pt_BR_pt_PT.xlsx` was reviewed separately:
+101 vocabulary rows, 72 verb rows and an explanatory sheet. Existing equivalents
+are reused; shared Portuguese and contextual alternatives are not imported as
+blanket substitutions.
+
+New vocabulary includes *sacola* → *saco*, *shorts* → *calções*, *aipim* →
+*mandioca*, hyphenated *misto-quente* → *tosta mista*, *chave de fenda* →
+*chave de fendas*, *arruela* → *anilha*, *furadeira* → *berbequim*,
+*embreagem* → *embraiagem*, *porca borboleta* → *porca de orelhas* and
+the qualified phrase *torque de aperto* → *binário de aperto*. Plurals and
+gender agreement use the existing vocabulary machinery.
+
+Generated mechanical verbs include *rosquear* → *enroscar*, *parafusar* →
+*aparafusar*, *desparafusar* → *desaparafusar*, *desengraxar* →
+*desengordurar* and *destravar* → *desbloquear*.
+*Afrouxar* becomes *desapertar* only before reviewed fasteners, lids or belts;
+*engraxar* becomes *lubrificar* only before mechanical parts, not shoes.
+*Digitar* becomes *introduzir* before passwords, codes, data and numbers, with
+the irregular form *introduz* handled explicitly.
+File-context *subir* becomes *carregar*, including *subo/sobe/sobes/sobem*.
+Download/save/upload constructions accept *arquivo*, *ficheiro* or *documento*;
+uploading *documentos* additionally requires an explicit digital destination
+(server, platform, site, cloud or portal), rather than moving papers upstairs.
+Climbing stairs, raising prices and rescuing people are not reinterpreted.
+These changes belong to **Vocabulary**; data-entry and file constructions use
+the independently switchable `construction-vocabulary` stage.
+
+Not automatically imported: *boleto* is not a Portuguese Multibanco reference;
+an *atestado* does not necessarily mean a *baixa médica*; *vedação* may be
+fencing rather than a seal; *rodoviária* can be an adjective; *printar* can refer
+to printing rather than taking a screenshot. *Conferir*, *centralizar*, *mandar*,
+*pressionar*, *travar*, *matéria* and *prova* also have valid shared uses.
+The workbook's optics terminology requires equipment-specific context:
+*matriz de mira*, bare *torquímetro*, *zeragem* and *calibragem* are not
+blindly replaced. Nor is feminine agreement imposed on the unit *grama*.
+Regression tests cover positive mappings, literal exclusions, rerun stability,
+option/stage gating, subtitle formatting and batch cue timings.
 
 The supplied `guia_completo_expressoes_ptBR_ptPT.xlsx` was reviewed against the
 existing word list and construction rules, not imported as a literal replacement table.
@@ -312,6 +400,67 @@ These rules change Portuguese constructions, rather than merely adding review wa
   Plural subjects are supported, and vowel hiatus is retained (*saíres, saírem,
   construírem*, but *sairmos*). *Eu/ele* and formal address are not changed into
   informal second person; coordinated subjects are not inferred.
+- **Specialist sportswear:** qualified Brazilian garment names use the existing
+  vocabulary/gender-agreement machinery. Ambiguous names require a single matching
+  English garment and a single Portuguese candidate in the cue, with matching
+  number. These English-confirmed changes use the independently switchable
+  `sports-clothing` stage and require **Vocabulary**, not a model download.
+  For example, *Tira a fantasia* + *Ditch the leotard* → *Tira o maillot*;
+  without that evidence, *fantasia* is preserved. Articles, possessives, supported
+  adjectives, plurals, tags and case are retained/adapted. Local overrides and
+  ignored words take precedence. No English words are inserted into the subtitle.
+
+  Reviewed English terminology and PT-PT equivalents:
+
+  | English garment | PT-PT | Integration |
+  | --- | --- | --- |
+  | leotard | maillot | English-confirmed fantasia/collant/colant; direct leotard and qualified maiô de ginástica/balé |
+  | ballet tights | collants de ballet | Preserved; never equated with a maillot merely because ballet is mentioned |
+  | tracksuit | fato de treino | English-confirmed agasalho; generic coats are preserved |
+  | golf shirt / polo shirt | polo (de golfe) | Qualified camisa/camiseta polo, camisa de golfe; generic camisa/camiseta needs English |
+  | riding breeches / jodhpurs | calças de equitação | English-confirmed plural culotes; qualified calças de hipismo |
+  | riding boots | botas de equitação | Qualified botas de hipismo |
+  | riding helmet | toque de equitação / capacete de equitação | Qualified capacete de hipismo uses toque de equitação |
+  | riding show jacket | casaca de equitação | Qualified casaca de hipismo |
+  | riding gaiters / half chaps | polainas | Already shared Portuguese; not replaced |
+  | cycling jersey | camisola de ciclismo | Qualified camisa de ciclismo; generic camisa needs English |
+  | cycling shorts | calções de ciclismo | Plural bermudas de ciclismo, with masculine agreement |
+  | wetsuit | fato de mergulho | Qualified macacão de mergulho; generic macacão needs English |
+  | sports bra | soutien desportivo | Qualified sutiã esportivo |
+  | swimsuit | fato de banho | Existing maiô mapping, distinct from a gymnastics maillot |
+  | football boots / shin guards | chuteiras / caneleiras | Already shared Portuguese; preserved |
+  | goalkeeper gloves | luvas de guarda-redes | Existing goleiro → guarda-redes coverage |
+
+  Sources: Portuguese [ballet](https://www.decathlon.pt/todos-os-desportos/ballet),
+  [gymnastics](https://www.decathlon.pt/todos-os-desportos/ginastica-artistica-e-ritmica/maillots-ginastica-artistica),
+  [golf](https://www.decathlon.pt/todos-os-desportos/golf/polos),
+  [riding](https://www.decathlon.pt/todos-os-desportos/equitacao/roupa-equitacao),
+  [rider equipment](https://www.decathlon.pt/todos-os-desportos/equitacao/cavaleiro)
+  and [wetsuit](https://www.decathlon.pt/homem/fatos-neoprene-homem) catalogues.
+  This is a reviewed set, not an exhaustive clothing dictionary. Shared terms,
+  generic uniforms, culote as a body-shape term and multiple-garment ambiguities
+  are not blanket replacements. Fato(s) de treino/mergulho are protected from the
+  unrelated Brazilian *fato* → *facto* spelling conversion, including on reruns.
+
+- **Shared-residence paraphrases:** when the English explicitly says *We live on
+  the same floor*, *Você é meu vizinho de andar* becomes *Vivemos no mesmo andar*.
+  The `shared-residence` stage supports matching floor/building/street/block/
+  neighbourhood descriptions and present/past forms (*Éramos vizinhos do mesmo
+  prédio* + *We lived in the same building* → *Vivíamos no mesmo edifício*).
+  It requires **Colloquial**, **Vocabulary** and a matching English reference;
+  no model download is needed. It preserves missing/conflicting references,
+  questions, negation, extra clauses and different locations. Greetings are
+  retained only when present in the Portuguese, not copied from the English.
+- **Physical descriptions:** under **Colloquial**, person descriptions with an
+  explicit metric height or weight use *com*: *Suspeito de cerca de 1,80m, porte
+  médio* → *Suspeito com cerca de 1,80m, porte médio*. This includes reviewed
+  person nouns, gender/plural forms, physical adjectives, approximate measurements
+  and numbers written in words. Measurements themselves are not converted or
+  reformatted. Age, origin, abstract complements and object dimensions remain
+  unchanged (*um suspeito de 30 anos*, *um homem de palavra*, *um muro de dois
+  metros*). The `physical-descriptions` stage can be disabled independently.
+  A corrected warning-only row becomes a normal selectable change; MiniLM warnings
+  are not suppressed by this wording adjustment.
 - **Conversational PT-PT style:** a separate optional checkbox, **off by default**,
   shared by preview and batch settings (`conversational: true`). Supported future
   mesoclisis becomes same-person *ir + infinitive*: *Manter-te-ei* →
@@ -770,6 +919,15 @@ its field when the row wraps. Batch configuration uses the full panel width.
 
 **Review tools** adds:
 
+- **Finding filters:** toggle **Rule-based changes**, **MiniLM warnings**,
+  **Gervásio choices**, **Other review warnings** and **Manual edits** to show or
+  hide matching rows. All five are on when the plugin opens. A row matching
+  several types remains visible while any matching type is on. Filters survive
+  settings/model-result refreshes and do not discard edits or change Apply
+  selections. The summary shows visible/total rows; switching every type off
+  hides every row. **Select all/none** still affects all corrections, including
+  hidden rows; **Apply** also includes selected hidden corrections.
+
 - **Manual editing:** the converted text of every row is an editable box. Click it and
   type the wording you want; the row is ticked automatically and your text is what
   **Apply** writes (also for lines the plugin left unchanged). If you delete all the text of
@@ -777,6 +935,10 @@ its field when the row wraps. Batch configuration uses the full panel width.
   The same text becomes the
   expected PT-PT in the regression export. Toggling **Include layout change** discards the
   manual edit of that row.
+  Every row displays the original text labelled **PT-BR**, including warning-only
+  rows. Their selection checkbox is visible but disabled while the text is unchanged:
+  a warning is not an automatic correction. Editing the text enables and selects
+  the checkbox; untick it to keep the original instead.
 
 - Expand **Rules and regression export** to the right of a row's original/converted
   text to see the stages that changed it,
@@ -882,7 +1044,8 @@ names differ after the episode code (`Show.S01E01.720p.pt-br.srt` and
   (from *dar*) are kept. Without a reference, *isso/esse* are never changed.
 - **Lines to review:** when the English says *you/your* but the line still has *você* or
   *seu/sua*, it is listed with an orange note (*Keep it if formal; change to tu/teu if informal*).
-  Nothing is changed; review-only lines have no checkbox, so fix them in Subtitle Edit if needed.
+  Nothing is changed automatically; edit the line directly in the plugin if needed,
+  then use its checkbox to include or exclude your correction.
   Titles and formal address (*Sua Excelência*, *o senhor*, *a senhora*) are not marked.
 - **English idiom hints:** when the English line has an idiom that Brazilian subtitles often
   translate badly or literally (*bust my hump*, *bust my chops*, *piece of cake*, *pull my leg*,
