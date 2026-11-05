@@ -467,6 +467,90 @@ public sealed class ReferenceTests(ITestOutputHelper output)
             var subtitle = Path.Combine(data, "episode.pt-br.srt");
             File.WriteAllText(subtitle, "");
             PluginBootstrap.BuildAvaloniaApp<App>().SetupWithoutStarting();
+            var repeatedWindow = new MainWindow(new PluginRequest
+            {
+                Subtitle = new PluginSubtitle
+                {
+                    Format = "SubRip",
+                    SubRip = "1\n00:00:01,000 --> 00:00:04,000\nO trem chegou.\n\n" +
+                             "2\n00:00:05,000 --> 00:00:07,000\nO trem chegou.\n",
+                },
+            });
+            repeatedWindow.ApplyCheckResults(new[]
+            {
+                new CheckLine(0, "O trem chegou.", "O comboio chegou.", null, null),
+                new CheckLine(1, "O trem chegou.", "O comboio chegou.", "O comboio chegou.", null),
+            }, new Dictionary<int, CheckResult>
+            {
+                [1] = new("O comboio chegou.", "Second cue only."),
+            });
+            Assert.DoesNotContain("Second cue only.", repeatedWindow.Proposals.Single(p => p.LineIndex == 0).ReviewNote ?? "");
+            Assert.Contains("Second cue only.", repeatedWindow.Proposals.Single(p => p.LineIndex == 1).ReviewNote);
+            repeatedWindow.FindControl<CheckBox>("MeaningCheck")!.IsChecked = false;
+            Assert.All(repeatedWindow.Proposals, p => Assert.DoesNotContain("Second cue only.", p.ReviewNote ?? ""));
+            Assert.Contains("cleared because settings changed", repeatedWindow.ChecksStatusText);
+            repeatedWindow.ApplyCheckResults(new[]
+            {
+                new CheckLine(0, "O trem chegou.", "O comboio chegou.", null, null),
+            }, new Dictionary<int, CheckResult> { [0] = new("O comboio chegou.", "Old reference result.") });
+            repeatedWindow.LoadReferenceAsync(english).GetAwaiter().GetResult();
+            Assert.All(repeatedWindow.Proposals, p => Assert.DoesNotContain("Old reference result.", p.ReviewNote ?? ""));
+
+            var screenshotWindow = new MainWindow(new PluginRequest
+            {
+                SettingsVersion = ConversionOptions.Version,
+                Settings = new ConversionOptions(PostAgreement: false, ValidateSpelling: true).ToJson(),
+                Subtitle = new PluginSubtitle
+                {
+                    Format = "SubRip",
+                    SubRip = "1\n00:00:01,000 --> 00:00:04,000\nVocê não lembra de mim,\nmas vou te contar uma parada\n",
+                },
+            });
+            Assert.Equal("Não te lembras de mim,\nmas vou contar-te uma coisa",
+                Assert.Single(screenshotWindow.Proposals).ConvertedText);
+            screenshotWindow.FindControl<CheckBox>("VocabularyCheck")!.IsChecked = false;
+            Assert.Contains("uma parada", Assert.Single(screenshotWindow.Proposals).ConvertedText);
+            screenshotWindow.FindControl<CheckBox>("VocabularyCheck")!.IsChecked = true;
+            Assert.Contains("uma coisa", Assert.Single(screenshotWindow.Proposals).ConvertedText);
+            screenshotWindow.FindControl<CheckBox>("PronounsCheck")!.IsChecked = false;
+            Assert.DoesNotContain("contar-te", Assert.Single(screenshotWindow.Proposals).ConvertedText);
+            screenshotWindow.FindControl<CheckBox>("PronounsCheck")!.IsChecked = true;
+            Assert.Contains("contar-te uma coisa", Assert.Single(screenshotWindow.Proposals).ConvertedText);
+            var settingsPanel = screenshotWindow.FindControl<StackPanel>("SettingsPanel")!;
+            var toggleSettings = screenshotWindow.FindControl<Button>("SettingsToggleButton")!;
+            var beforeCollapse = Assert.Single(screenshotWindow.Proposals);
+            beforeCollapse.ConvertedText += " [manual edit]";
+            beforeCollapse.Include = false;
+            screenshotWindow.FindControl<Expander>("ReferencePanel")!.IsExpanded = true;
+            screenshotWindow.Show();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            var screenshotContent = Assert.IsAssignableFrom<Control>(screenshotWindow.Content);
+            void LayoutScreenshot()
+            {
+                screenshotContent.Measure(new Avalonia.Size(1080, 720));
+                screenshotContent.Arrange(new Avalonia.Rect(0, 0, 1080, 720));
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            }
+            LayoutScreenshot();
+            var settingsHeight = settingsPanel.Bounds.Height;
+            var reviewHeight = screenshotWindow.FindControl<Border>("ChangesBorder")!.Bounds.Height;
+            toggleSettings.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            LayoutScreenshot();
+            Assert.False(settingsPanel.IsVisible);
+            Assert.True(settingsHeight > 0);
+            Assert.Equal(0, settingsPanel.DesiredSize.Height);
+            Assert.True(screenshotWindow.FindControl<Border>("ChangesBorder")!.Bounds.Height > reviewHeight + 100);
+            Assert.Equal("Expand settings", Avalonia.Automation.AutomationProperties.GetName(toggleSettings));
+            Assert.Same(beforeCollapse, Assert.Single(screenshotWindow.Proposals));
+            toggleSettings.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            LayoutScreenshot();
+            Assert.True(settingsPanel.IsVisible);
+            Assert.True(screenshotWindow.FindControl<Expander>("ReferencePanel")!.IsExpanded);
+            Assert.Equal("Collapse settings", Avalonia.Automation.AutomationProperties.GetName(toggleSettings));
+            Assert.Equal(reviewHeight, screenshotWindow.FindControl<Border>("ChangesBorder")!.Bounds.Height);
+            Assert.EndsWith(" [manual edit]", Assert.Single(screenshotWindow.Proposals).ConvertedText);
+            Assert.False(Assert.Single(screenshotWindow.Proposals).Include);
+            screenshotWindow.Close();
             var window = new MainWindow(new PluginRequest
             {
                 Subtitle = new PluginSubtitle
@@ -594,6 +678,7 @@ public sealed class ReferenceTests(ITestOutputHelper output)
             style.IsChecked = false;
             Assert.Empty(styleWindow.Proposals);
             var configureWindow = new MainWindow(new PluginRequest { RequestType = PluginRequestType.Configure });
+            Assert.False(configureWindow.FindControl<Button>("SettingsToggleButton")!.IsVisible);
             Assert.False(configureWindow.FindControl<Expander>("ReviewTools")!.IsVisible);
             Assert.Equal(0, configureWindow.FindControl<Grid>("ReviewLayoutPanels")!.ColumnDefinitions[0].Width.Value);
             var warningsWindow = new MainWindow(new PluginRequest

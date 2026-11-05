@@ -161,6 +161,24 @@ internal static class LocalChecks
     internal static bool MeaningReady(EmbeddingSettings settings) =>
         settings.CheckMeaning && EmbeddingAssets.IsInstalled(settings);
 
+    internal static async Task<string?> IdiomMeaningNoteAsync(CheckLine line, string converted,
+        Func<string?, Task<float[]?>> embed)
+    {
+        var reading = IdiomHints.MeaningReference(line.Reference);
+        if (reading == null) return null;
+        var reference = await embed(reading);
+        var original = await embed(line.Original);
+        var final = converted == line.Original ? original : await embed(converted);
+        if (reference == null || original == null || final == null) return null;
+        var before = ReferenceAligner.Dot(original, reference);
+        var after = ReferenceAligner.Dot(final, reference);
+        if (before >= TranslationThreshold && after >= TranslationThreshold &&
+            before - after < (before >= FaithfulBaseline ? SuspiciousDrop : ReferenceDrop))
+            return null;
+        return $"MiniLM (possible English idiom): similarity {before:0.00} before the rules, {after:0.00} after " +
+            $"to the possible reading “{reading}” - check the context; literal use is also possible.";
+    }
+
     internal static async Task<(Dictionary<int, CheckResult> Results, string Summary)> RunAsync(IReadOnlyList<CheckLine> lines,
         EmbeddingSettings settings, IProgress<string> progress, CancellationToken token)
     {
@@ -247,7 +265,8 @@ internal static class LocalChecks
         var changed = lines.Where(l => l.Original != texts[l.Index]).ToList();
         // Stage 1 (before the rules): is the Brazilian line itself faithful to the English? Stage 2 (after): did the rules keep it so?
         var referenced = lines.Where(l => IsComparable(l.Original, l.Reference) || IsComparable(texts[l.Index], l.Reference)).ToList();
-        if (changed.Count == 0 && referenced.Count == 0) return (0, 0);
+        var idiomatic = lines.Where(l => IdiomHints.MeaningReference(l.Reference) != null).ToList();
+        if (changed.Count == 0 && referenced.Count == 0 && idiomatic.Count == 0) return (0, 0);
         await using var runtime = await EmbeddingRuntime.StartAsync(settings, progress, token);
         var cache = new Dictionary<string, float[]>(StringComparer.Ordinal);
         async Task<float[]?> Embed(string? text)
@@ -304,6 +323,18 @@ internal static class LocalChecks
                 translation++;
             }
             if (i % 50 == 0) progress.Report($"MiniLM: translation check {i + 1}/{referenced.Count}...");
+        }
+        for (var i = 0; i < idiomatic.Count; i++)
+        {
+            token.ThrowIfCancellationRequested();
+            var line = idiomatic[i];
+            var idiomNote = await IdiomMeaningNoteAsync(line, texts[line.Index], Embed);
+            if (idiomNote != null)
+            {
+                note(line.Index, idiomNote);
+                if (flaggedLines.Add(line.Index)) translation++;
+            }
+            if (i % 50 == 0) progress.Report($"MiniLM: idiom check {i + 1}/{idiomatic.Count}...");
         }
         return (flagged, translation);
     }

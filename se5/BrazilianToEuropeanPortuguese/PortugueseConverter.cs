@@ -665,7 +665,7 @@ public sealed class PortugueseConverter
         if (informalConstructions) s = ConversionConstructions.Clauses(s, reference);
         Track("subject-continuity", "Controlled and reference-confirmed clause subjects");
         if (_options.Colloquial && _options.Vocabulary) s = ConversionConstructions.Idioms(s, reference);
-        Track("reference-idioms", "Literal Portuguese idioms confirmed by aligned English");
+        Track("reference-idioms", "Brazilian expressions and English-confirmed literal idioms");
 
         if (_options.YouToTu)
         {
@@ -765,6 +765,9 @@ public sealed class PortugueseConverter
             s = CliticAllomorphs.Apply(s);
         }
         Track("reflexive-clitics", "Reflexives and clitic allomorphs");
+
+        if (_options.Colloquial) s = ConversionConstructions.NaturalWordOrder(s);
+        Track("natural-word-order", "Habitual sempre after lexical verbs and recoverable progressive subjects");
 
         if (_options.Vocabulary && _options.Pronouns) s = ConversionConstructions.Complaints(s, informalConstructions);
         Track("construction-vocabulary", "Complement-qualified vocabulary senses");
@@ -867,7 +870,7 @@ public sealed class PortugueseConverter
     // "pegar o ônibus/trem/táxi" → "apanhar o autocarro/comboio/táxi" ("pegar" alone means "to hold/grab" in Portugal).
     private static readonly Regex CatchTransport = new(
         NotWordBefore + @"(?<v>(?<stem>pegu|peg)(?<end>o|as|a|amos|am|ei|aste|ou|ámos|aram|ava|avas|ávamos|avam|ar|e|es|emos|em|asse|ares|armos|arem))" +
-        @"(?=\s+(?:o|um|os|uns|esse|este|aquele|outro|o\s+próximo|o\s+primeiro|o\s+último|o\s+mesmo)\s+(?:ônibus|autocarros?|trem|trens|comboios?|metrô|metro|táxi|táxis|taxi|avião|voo|vôo|barco|ferry|elevador|bonde|elétrico)" + NotWordAfter + ")", Ci);
+        @"(?=\s+(?:o|um|os|uns|esse|este|aquele|outro|o\s+próximo|o\s+primeiro|o\s+último|o\s+mesmo)\s+(?:ônibus|busão|busões|autocarros?|trem|trens|comboios?|metrô|metro|táxi|táxis|taxi|avião|voo|vôo|barco|ferry|elevador|bonde|elétrico)" + NotWordAfter + ")", Ci);
 
     private static readonly Regex DepartingBarca = new(
         NotWordBefore + @"(?<det>(?:(?:" + Determiners.Pattern + @")\s+)?)" +
@@ -2719,7 +2722,7 @@ public sealed class PortugueseConverter
 
                 if (reference.SecondPersonSubject && !reference.ThirdPerson)
                 {
-                    s = ReferenceSubordinateVerb.Replace(s, ReplaceReferenceSecondPersonVerb);
+                    s = ReferenceSubordinateVerb.Replace(s, m => ReplaceReferenceSubordinateVerb(m, reference));
                     s = ReferenceCausalVerb.Replace(s, ReplaceReferenceSecondPersonVerb);
                 }
             }
@@ -2735,6 +2738,31 @@ public sealed class PortugueseConverter
 
         private static readonly Regex ReferenceSubordinateVerb = new(
             @"(?<pre>(?<![\p{L}\p{M}])que\s+)(?<v>\p{L}+)(?![\p{L}\p{M}-])", Ci);
+
+        private static readonly Regex ImpersonalWhatVerb = new(
+            @"^(?:acontece|aconteceu|acontecia|acontecerá|aconteceria|aconteça|acontecesse)$", Ci);
+
+        private static readonly Regex CopularWhatVerb = new(
+            @"^(?:é|era|foi|será|seria|seja|fosse)$", Ci);
+
+        private static string ReplaceReferenceSubordinateVerb(Match m, ReferenceHint reference)
+        {
+            // In "quem achas que vê", "quem" is the embedded subject, not the addressee.
+            if (ConversionConstructions.KeepsExtractedQuestionSubject(m.Result("$`") + m.Groups["pre"].Value, reference))
+                return m.Value;
+            if (Regex.IsMatch(m.Result("$`"), @"\bo\s+$", Ci))
+            {
+                var verb = m.Groups["v"].Value;
+                var after = m.Result("$'");
+                var impersonal = ImpersonalWhatVerb.IsMatch(verb) ||
+                    verb.Equals("está", StringComparison.OrdinalIgnoreCase) &&
+                    Regex.IsMatch(after, @"^\s+(?:a\s+acontecer|acontecendo)\b", Ci);
+                var copular = CopularWhatVerb.IsMatch(verb) &&
+                    (!reference.SecondPersonWhatSubject || Regex.IsMatch(after, @"^\s+(?:isso|isto|aquilo)\b", Ci));
+                if (impersonal || copular) return m.Value;
+            }
+            return ReplaceReferenceSecondPersonVerb(m);
+        }
 
         private static readonly Regex ReferenceCausalVerb = new(
             @"(?<pre>^[\s""“«'\uE000-\uF8FF]*(?:(?<![\p{L}\p{M}])[-–—]\s*)?" +
@@ -3877,7 +3905,9 @@ public sealed class PortugueseConverter
             s = ThankPerson.Replace(s, ReplaceThankPerson);
             s = StartPossessive.Replace(s, AddStartArticle);
             s = IntroductoryPossessive.Replace(s, AddIntroductoryArticle);
-            s = NosVemos.Replace(s, m => m.Groups["pre"].Value + CaseHelper.Capitalize(PortugueseVerbs.AttachEnclitic(m.Groups["v"].Value, "nos")));
+            s = NosVemos.Replace(s, m => PortugueseVerbs.IsKnownVerbForm(m.Groups["v"].Value)
+                ? m.Groups["pre"].Value + CaseHelper.Capitalize(PortugueseVerbs.AttachEnclitic(m.Groups["v"].Value, "nos"))
+                : m.Value);
             s = JustCommand.Replace(s, ReplaceJustCommand);
             s = StartClitic.Replace(s, m => ReplaceLeading(m, capitalize: true));
             s = ReflexiveCommand.Replace(s, ReplaceReflexiveCommand);
@@ -3981,7 +4011,7 @@ public sealed class PortugueseConverter
 
         private static readonly HashSet<string> ProclisisAttractors = new(StringComparer.OrdinalIgnoreCase)
         {
-            "que", "não", "nunca", "jamais", "já", "também", "só", "sempre", "ainda", "quem", "onde", "como", "quando",
+            "que", "não", "nunca", "jamais", "já", "também", "só", "sempre", "ainda", "quem", "onde", "aonde", "como", "quando",
             "porque", "porquê", "se", "nem", "talvez", "tudo", "todos", "todas", "ninguém", "alguém", "algo", "nada", "bem",
             "mal", "até", "para", "de", "a", "por", "sem", "qual", "quais", "quanto", "quanta", "quantos", "quantas", "ou",
             "apenas", "mesmo", "assim", "logo", "acaso", "embora", "caso", "enquanto", "eu", "tu", "ele", "ela", "nós", "eles",
@@ -4190,7 +4220,7 @@ public sealed class PortugueseConverter
         // "que a minha mãe", "se o Jack", "quando a polícia": the subordinating word still attracts the pronoun
         // across a short subject ("que a minha mãe o traiu", not "traiu-o").
         private static readonly Regex SubordinateSubject = new(
-            @"(?<![\p{L}\p{M}])(?:que|se|quando|porque|onde|embora|enquanto|caso|até\s+que|antes\s+que|depois\s+que)\s+" +
+            @"(?<![\p{L}\p{M}])(?:que|se|quando|porque|onde|aonde|embora|enquanto|caso|até\s+que|antes\s+que|depois\s+que)\s+" +
             @"(?<det>(?:o|a|os|as|um|uma|este|esta|esse|essa|aquele|aquela)\s+)?(?<pos>(?:meu|minha|meus|minhas|teu|tua|teus|tuas|seu|sua|seus|suas|nosso|nossa|nossos|nossas)\s+)?" +
             @"(?<n>[\p{L}\p{M}-]+)\s*$",
             RegexOptions.IgnoreCase);
@@ -4204,7 +4234,7 @@ public sealed class PortugueseConverter
             }
 
             var n = m.Groups["n"].Value;
-            if (!m.Groups["det"].Success && !m.Groups["pos"].Success && n.ToLowerInvariant() is "eu" or "tu" or "ele" or "ela" or "nós" or "eles" or "elas")
+            if (!m.Groups["det"].Success && !m.Groups["pos"].Success && n.ToLowerInvariant() is "eu" or "tu" or "ele" or "ela" or "nós" or "eles" or "elas" or "isso" or "isto" or "aquilo")
             {
                 return true;
             }

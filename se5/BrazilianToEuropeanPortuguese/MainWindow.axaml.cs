@@ -62,7 +62,7 @@ public partial class MainWindow : Window
     private CheckBox _meaningCheck = null!;
     private CheckBox _judgeCheck = null!;
     private readonly List<CheckLine> _checkLines = new();
-    private readonly Dictionary<(string Original, string Converted), CheckResult> _checks = new();
+    private readonly Dictionary<CheckLine, CheckResult> _checks = new();
     private ComboBox _addressChoice = null!;
     private CheckBox _sentenceContextCheck = null!;
     private CheckBox _rewrapCheck = null!;
@@ -164,6 +164,18 @@ public partial class MainWindow : Window
 
     private void OnLayoutChanged(object? sender, NumericUpDownValueChangedEventArgs e) => OnOptionChanged(sender, e);
 
+    private void OnToggleSettings(object? sender, RoutedEventArgs e)
+    {
+        var panel = this.FindControl<StackPanel>("SettingsPanel")!;
+        panel.IsVisible = !panel.IsVisible;
+        var action = panel.IsVisible ? "Collapse settings" : "Expand settings";
+        var button = this.FindControl<Button>("SettingsToggleButton")!;
+        ToolTip.SetTip(button, action + (panel.IsVisible ? " to show more subtitle lines" : ""));
+        Avalonia.Automation.AutomationProperties.SetName(button, action);
+        this.FindControl<PathIcon>("SettingsToggleIcon")!.Data = Avalonia.Media.Geometry.Parse(
+            panel.IsVisible ? "M 2,11 L 8,5 L 14,11" : "M 2,5 L 8,11 L 14,5");
+    }
+
     private async void OnCheckDictionary(object? sender, RoutedEventArgs e) => await UpdateDictionary(false);
     private async void OnDownloadDictionary(object? sender, RoutedEventArgs e) => await UpdateDictionary(true);
 
@@ -195,6 +207,7 @@ public partial class MainWindow : Window
     /// <summary>Opened from Batch convert's Configure button: choose the rule groups, edit the local word list.</summary>
     private void ShowConfigure()
     {
+        this.FindControl<Button>("SettingsToggleButton")!.IsVisible = false;
         this.FindControl<Expander>("ReviewTools")!.IsVisible = false;
         this.FindControl<Grid>("ReviewLayoutPanels")!.ColumnDefinitions[0].Width = new GridLength(0);
         Title = $"{BatchMode.Name} - Batch convert settings";
@@ -395,8 +408,9 @@ public partial class MainWindow : Window
             var rules = conversions[i].Rules.ToList();
             var previous = i == 0 ? null : convertedLines.TryGetValue(i - 1, out var before) ? before : _blocks[i - 1].Text;
             convertedLines[i] = text;
-            _checkLines.Add(new CheckLine(i, _blocks[i].Text, text, previous, reference));
-            if (_checks.TryGetValue((_blocks[i].Text, text), out var check))
+            var checkLine = new CheckLine(i, _blocks[i].Text, text, previous, reference);
+            _checkLines.Add(checkLine);
+            if (_checks.TryGetValue(checkLine, out var check))
             {
                 if (check.Text != text) rules.Add(new RuleChange("local-judge", "Gervásio chose a fixed alternative", "Local model ranking; see review note"));
                 text = check.Text;
@@ -575,8 +589,13 @@ public partial class MainWindow : Window
         if (_loadingEmbedding) return;
         SaveEmbeddingSettings();
         if (_referenceBlocks != null && sender == _embeddingCheck) await AlignReference();
-        if (!_isConfigure && (sender == _meaningCheck || sender == _judgeCheck) && ((CheckBox)sender).IsChecked == true && ChecksReady)
-            await RunChecks();
+        if (!_isConfigure && (sender == _meaningCheck || sender == _judgeCheck))
+        {
+            _checks.Clear();
+            RefreshProposals();
+            _referenceStatus.Text = "Local check results cleared because settings changed. Run checks to review again.";
+            if (((CheckBox)sender).IsChecked == true && ChecksReady) await RunChecks();
+        }
     }
 
     private bool ChecksReady
@@ -601,17 +620,20 @@ public partial class MainWindow : Window
                 throw new InvalidOperationException("Tick a check and download its model and llama-server first.");
             var pending = _checkLines.ToList();
             var (results, summary) = await LocalChecks.RunAsync(pending, _embeddingSettings, progress, token);
-            foreach (var line in pending)
-            {
-                _checks[(line.Original, line.Converted)] = results.TryGetValue(line.Index, out var result)
-                    ? result : new CheckResult(line.Converted, null);
-            }
-            RefreshProposals();
+            ApplyCheckResults(pending, results);
             _referenceStatus.Text = "Checks done. " + summary;
         });
     }
 
     internal string ChecksStatusText => _referenceStatus.Text ?? string.Empty;
+
+    internal void ApplyCheckResults(IReadOnlyList<CheckLine> lines, IReadOnlyDictionary<int, CheckResult> results)
+    {
+        foreach (var line in lines)
+            _checks[line] = results.TryGetValue(line.Index, out var result)
+                ? result : new CheckResult(line.Converted, null);
+        RefreshProposals();
+    }
 
     private void OnDeviceChanged(object? sender, SelectionChangedEventArgs e)
     {

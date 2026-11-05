@@ -19,8 +19,8 @@ internal static class ClothingConstructions
         @"(?<noun>" + Clothes + @")(?<owner>\s+(?:dele|dela|deles|delas))?" + After, Ci);
     private static readonly Regex Underwear = new(
         Before + @"(?<prefix>(?:(?:a|uma|da|na|à|pela|essa|esta|aquela|minha|tua|sua|nossa|vossa|nova|velha|outra|própria)\s+){0,4})" +
-        @"(?<noun>cueca|calcinha)(?!\s+boxer\b)" + After +
-        @"(?<copula>\s+(?:está|estava|é|era|ficou))?(?<adj>(?:\s+(?:nova|velha|limpa|suja|branca|preta|azul|rasgada|molhada|seca|pequena|grande)){0,2})", Ci);
+        @"(?<noun>cueca|calcinha|meia-calça)(?!\s+boxer\b)" + After +
+        @"(?<copula>\s+(?:está|estava|é|era|ficou))?(?<adj>(?:\s+(?:nova|velha|limpa|suja|branca|preta|azul|vermelha|amarela|verde|cinzenta|bege|roxa|transparente|curta|comprida|fina|grossa|rasgada|molhada|seca|pequena|grande)){0,2})", Ci);
     private static readonly Dictionary<string, string> Plurals = new(StringComparer.OrdinalIgnoreCase)
     {
         ["a"] = "as", ["uma"] = "umas", ["da"] = "das", ["na"] = "nas", ["à"] = "às", ["pela"] = "pelas",
@@ -89,14 +89,30 @@ internal static class ClothingConstructions
 
     internal static string PluralUnderwear(string text) => Underwear.Replace(text, m =>
     {
+        var tights = m.Groups["noun"].Value.Equals("meia-calça", StringComparison.OrdinalIgnoreCase);
         var prefix = Regex.Replace(m.Groups["prefix"].Value, @"\p{L}+", word =>
-            Plurals.TryGetValue(word.Value, out var plural) ? CaseHelper.MatchCase(word.Value, plural) : word.Value, Ci);
+        {
+            if (!Plurals.TryGetValue(word.Value, out var plural)) return word.Value;
+            if (tights)
+                plural = plural switch
+                {
+                    "as" => "os", "umas" => "uns", "das" => "dos", "nas" => "nos", "às" => "aos", "pelas" => "pelos",
+                    "essas" => "esses", "estas" => "estes", "aquelas" => "aqueles", "minhas" => "meus", "tuas" => "teus",
+                    "suas" => "seus", "nossas" => "nossos", "vossas" => "vossos",
+                    _ => plural[..^2] + "os",
+                };
+            return CaseHelper.MatchCase(word.Value, plural);
+        }, Ci);
         var adjectives = Regex.Replace(m.Groups["adj"].Value, @"\p{L}+", word =>
-            CaseHelper.MatchCase(word.Value, word.Value + "s"), Ci);
+        {
+            var adjective = word.Value.ToLowerInvariant();
+            var plural = adjective == "azul" ? "azuis" : tights && adjective.EndsWith('a') ? adjective[..^1] + "os" : adjective + "s";
+            return CaseHelper.MatchCase(word.Value, plural);
+        }, Ci);
         var copula = m.Groups["copula"].Value;
         if (copula.Length > 0)
             copula = Regex.Replace(copula, @"\p{L}+", word => CaseHelper.MatchCase(word.Value,
                 word.Value.ToLowerInvariant() switch { "está" => "estão", "estava" => "estavam", "é" => "são", "era" => "eram", _ => "ficaram" }), Ci);
-        return prefix + CaseHelper.MatchCase(m.Groups["noun"].Value, "cuecas") + copula + adjectives;
+        return prefix + CaseHelper.MatchCase(m.Groups["noun"].Value, tights ? "collants" : "cuecas") + copula + adjectives;
     });
 }

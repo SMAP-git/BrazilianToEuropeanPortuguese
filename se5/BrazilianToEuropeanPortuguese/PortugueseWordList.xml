@@ -29,6 +29,49 @@
   <Word br="trabalho de tempo integral" pt="trabalho a tempo inteiro" />
   <Word br="emprego de tempo integral" pt="emprego a tempo inteiro" />
   <!-- ===================== Brazilian slang ===================== -->
+  <Word br="doideira" pt="loucura" />
+  <Word br="doideiras" pt="loucuras" />
+  <Word br="vambora" pt="vamos embora" />
+  <Word br="breja" pt="cerveja" />
+  <Word br="brejas" pt="cervejas" />
+  <Word br="bufunfa" pt="massa" />
+  <Word br="busão" pt="autocarro" />
+  <Word br="busões" pt="autocarros" />
+  <Word br="flanelinha" pt="arrumador de carros" det="m" />
+  <Word br="flanelinhas" pt="arrumadores de carros" det="m" />
+  <Word br="fita adesiva" pt="fita-cola" />
+  <Word br="fitas adesivas" pt="fitas-cola" />
+  <Word br="mensalidade da faculdade" pt="propina" />
+  <Word br="mensalidades da faculdade" pt="propinas" />
+  <Word br="sunga" pt="slip de banho" g="m" />
+  <Word br="sungas" pt="slips de banho" g="m" />
+  <Word br="meias-calças" pt="collants" g="m" />
+  <Verb br="paquerar" pt="engatar" />
+  <Word br="holerite" pt="recibo de vencimento" />
+  <Word br="holerites" pt="recibos de vencimento" />
+  <Word br="trem-bala" pt="comboio de alta velocidade" />
+  <Word br="trens-bala" pt="comboios de alta velocidade" />
+  <Word br="trens-balas" pt="comboios de alta velocidade" />
+  <Word br="suco de caixinha" pt="sumo de pacote" />
+  <Word br="sucos de caixinha" pt="sumos de pacote" />
+  <Word br="suco de mamão" pt="sumo de papaia" />
+  <Word br="sucos de mamão" pt="sumos de papaia" />
+  <Word br="computador de mesa" pt="computador de secretária" />
+  <Word br="computadores de mesa" pt="computadores de secretária" />
+  <Word br="mensagem inbox" pt="mensagem privada" />
+  <Word br="mensagens inbox" pt="mensagens privadas" />
+  <Word br="captura de tela" pt="captura de ecrã" />
+  <Word br="capturas de tela" pt="capturas de ecrã" />
+  <Word br="pão francês" pt="papo-seco" />
+  <Word br="pães franceses" pt="papos-secos" />
+  <Word br="escanteio" pt="canto" det="m" />
+  <Word br="escanteios" pt="cantos" />
+  <Word br="zagueiro" pt="defesa-central" />
+  <Word br="zagueiros" pt="defesas-centrais" />
+  <Word br="zagueira" pt="defesa-central" />
+  <Word br="zagueiras" pt="defesas-centrais" />
+  <Word br="mexerica" pt="tangerina" det="f" />
+  <Word br="mexericas" pt="tangerinas" det="f" />
   <Word br="dedo-duro" pt="bufo" />
   <Word br="dedos-duros" pt="bufos" />
   <Word br="caguete" pt="bufo" />

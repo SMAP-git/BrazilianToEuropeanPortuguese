@@ -1,9 +1,20 @@
 # Brazilian to European Portuguese (Subtitle Edit 5 plugin)
 
+Version **1.2.4** adds reviewed vocabulary and expressions, English-idiom meaning
+checks, guarded subject agreement and habitual word order, context-specific review
+caching, and a collapsible settings area.
+
 Converts Brazilian Portuguese (pt-BR) subtitles to natural European Portuguese (pt-PT):
 spelling, vocabulary and grammar. Like *American to British*, it shows a checkable
 preview of every changed line, so you can review and untick individual changes before
 applying them.
+
+Use the arrow immediately to the left of the word-list gear to collapse or expand
+the settings area (including reference/model controls) while reviewing subtitles.
+Select all/none and Apply remain available. Collapsing does not rerun conversion,
+clear model results, or discard manual edits and checked/unchecked proposals.
+Expanding restores the existing controls and expander states. The arrow is hidden
+in the batch configuration window, where the settings must remain accessible.
 
 | Group | Examples |
 |---|---|
@@ -16,14 +27,150 @@ applying them.
 | **Colloquial** | tá → está, tô → estou, pra → para, né → não é, cadê → onde está, Tá bom → Está bem, Oi → Olá, deixa eu → deixa-me, ter que → ter de, precisar ir → precisar de ir, tenho certeza → tenho a certeza, Legal! → Fixe!, Sério? → A sério?, Falando sério → A sério, E aí, beleza? → Então, tudo bem?, Tchau → Adeus, Tudo bem! → Está tudo bem!, Que saco → Que seca, Fica frio → Tem calma, de jeito nenhum → de maneira nenhuma |, Me desculpa → Desculpa, Valeu por vir → Obrigado por vir, Escuta, cara → Ouve, meu, todo mundo → toda a gente, pelo jeito → pelos vistos, tomara que → espero que, Te vejo lá → Vemo-nos lá, Falando nisso → Por falar nisso, Imagina (after thanks) → De nada, Ok → Está bem, Tá. → Está bem., hein? → não?, Estou com saudade → Tenho saudades, onde ele está? → onde está ele?, Vai se foder → Vai-te foder, puta que o pariu → merda, uma puta confusão → uma grande confusão, cai fora → sai daqui, vendo dobrado → a ver a dobrar
 | **você → tu** | Você tem razão → Tens razão, Você se lembra? → Lembras-te?, com você → contigo, para você → para ti, Eu amo você → Eu amo-te, Foi você? → Foste tu?, É você quem precisa → És tu que precisas. *Vocês* is already European and is not changed. When the line addresses someone by title (senhor, senhora, doutor, detetive, agente, professor...) the formal form is used instead: *Detetive, posso falar com você?* → *Detetive, posso falar consigo?*, *Senhor, isto é para você* → *para si*, *Doutor, você está bem?* → *Doutor, está bem?* |. Sentences with an implied *você* are also converted: *Acha que ela vem?* → *Achas que ela vem?*, *Lembra do meu pai?* → *Lembras-te do meu pai?*, *Precisa de foco* → *Precisas de foco*, negative commands *Não fala* → *Não fales*, *Não se preocupa* → *Não te preocupes*; seu/sua → teu/tua when talking to *tu*, se você pedir → se pedires, ter você → ter-te, você e o Henry → tu e o Henry; name-calling such as *seu tarado* keeps *seu*
 
+*Você não lembra de mim, / mas vou te contar uma parada* becomes
+*Não te lembras de mim, / mas vou contar-te uma coisa* with the default conversion
+groups, in either orthography. Both *vou contar-te* and *vou-te contar* are valid
+European Portuguese placements; the converter retains its existing infinitive-enclisis
+style and converts the slang noun with either placement.
+
+Habitual word order is normalised under **Colloquial**, using the
+`natural-word-order` stage: *porque você sempre sabe quando eu tô mentindo* →
+*porque sabes sempre quando estou a mentir*. This is a PT-PT style preference,
+not a claim that every preverbal *sempre* is ungrammatical.
+Reviewed lexical verb families include knowing/perceiving, saying/answering,
+arriving/returning, working/studying, buying/paying and eating/drinking.
+Finite forms are checked against the verb toolkit or bundled dictionary; supported clause boundaries
+and explicit pronouns qualify the change. Tense, person, line breaks and case are
+preserved. Auxiliaries, infinitives, *nem/quase/para/como sempre*, *sempre que* and
+intervening or attached clitics are not blindly reordered.
+In subordinate *quando/enquanto/porque/se eu estou a + infinitive* clauses, the
+recoverable *eu* is omitted; ambiguous *eu estava*, intervening emphasis and
+explicit immediate *e tu/ele/...* or *mas* contrasts are kept.
+The stage is shared by preview and batch mode and can be disabled independently.
+
 Recent corpus-driven rules include *dar uma olhada* → *dar uma vista de olhos*,
 *sob controle* → *sob controlo*, *contêiner* → *contentor*, and *esfriar* → *arrefecer*.
+Additional slang includes *doideira(s)* → *loucura(s)* and *vambora* → *vamos embora*;
+*bora lá* is preserved. Initial *nos* before an adjective (*Nos últimos quatro dias*,
+*Nos próximos meses*) is not treated as an object pronoun. The *Nos vemos* →
+*Vemo-nos* rule requires a recognized verb rather than just a word ending in *-mos*.
 Collecting/catching objects is not limited to fishing: *Pegam muitas coisas aqui* →
 *Apanham muitas coisas aqui*, with the original word order and line breaks preserved.
 Holding/grabbing remains distinct: *Pega a arma* → *Pega na arma*.
 Context-sensitive examples include *Coloque-me na espera* → *Coloque-me em espera*,
 *esse pestinha aqui* → *este pestinha aqui*, and *Pare de drama, só me diga* →
 *Deixe-se de dramas, diga-me só*.
+English-reference subject agreement distinguishes embedded *o que aconteceu/é*
+from *you*: *Sabe o que aconteceu?* becomes *Sabes o que aconteceu?*, not
+*aconteceste*. An explicit repeated English subject (*you know what you did*)
+still permits *Sabes o que fizeste*. Subordinate clauses with *isso/isto/aquilo*
+preserve proclisis, including after *aonde*: *Se isso me preocupa* and
+*aonde isto me leva*. Main clauses still use enclisis: *Isso preocupa-me*.
+
+Extracted questions also distinguish the addressee from the embedded subject:
+*Ned, quem você acha que vê isso?* with *who do you think is watching this?*
+becomes *Ned, quem achas que vê isto?*, not *vês*. A shared guard covers
+*quem*, *o que* and *qual/quais* (including short noun phrases), with reviewed
+forms of *achar, pensar, acreditar, imaginar, supor, dizer* and *saber*.
+It preserves the embedded verb, including modal *pode/vai*, unless the English
+explicitly repeats *you* after that question's reporting verb:
+*Who do you think you saw?* still permits *Quem achas que viste?*.
+Without that evidence, ambiguous extracted subjects are not assumed to be *tu*.
+This guards both Portuguese subject-continuity and English-reference rules,
+preserves formatting, and respects **você → tu** and formal-address settings.
+The existing English *this/that* distinction still controls *isto/isso* separately.
+
+### Verified expression-guide additions
+
+The supplied `guia_completo_expressoes_ptBR_ptPT.xlsx` was reviewed against the
+existing word list and construction rules, not imported as a literal replacement table.
+Verified additions include:
+
+| Brazilian form | European output |
+|---|---|
+| breja(s), bufunfa | cerveja(s), massa |
+| busão / busões | autocarro / autocarros; *pegar um busão* → *apanhar um autocarro* |
+| fita(s) adesiva(s) | fita-cola / fitas-cola |
+| mensalidade(s) da faculdade | propina(s), protected from the BR bribery rule in the same run |
+| o flanelinha / os flanelinhas | o arrumador de carros / os arrumadores de carros |
+| sunga(s) | slip(s) de banho, with masculine agreement |
+| meia-calça / meias-calças | collants; *A meia-calça está rasgada* → *Os collants estão rasgados* |
+| paquerar | engatar, including conjugated forms |
+| dar um rolê / um rolezinho | dar uma volta / uma voltinha |
+| trocar uma ideia; bater um papo | conversar, followed by existing *falar* mappings where applicable |
+| pagar (um) mico | passar vergonha |
+| ficar de bobeira | ficar sem fazer nada |
+| falar abobrinha(s) | falar disparates |
+| tomar uma breja | beber uma cerveja |
+| pão-duro / pães-duros | forreta(s), only with English confirmation of stinginess |
+
+Expression rules require both **Vocabulary** and **Colloquial**; they retain verb
+tense and respect the existing `reference-idioms` stage switch. Literal meanings
+are preserved: *bife rolê*, *trocar uma ideia por outra*, *errei de bobeira*, and the
+kitchen utensil *pão-duro*. A feminine *flanelinha* is not guessed to be a parking
+attendant rather than a small cloth.
+
+The guide also contains non-equivalents and unnecessary changes. In particular,
+[*bater uma sesta*](https://dicionario.priberam.org/sesta) means sleeping, not eating;
+[*bitaite*](https://dicionario.priberam.org/bitaite) is an often unfounded opinion,
+not neutral conversation; and *estar com pressa* is already valid European Portuguese.
+Generic *mala*, *gatinho*, *descarga*, *grampo* and *vitamina* remain context-dependent.
+*Carteira de trabalho* is not automatically replaced by *carteira profissional*,
+which can denote a different document. *Vaquinha*, *água com gás*, *suborno*,
+*namorada* and *preservativo* need no automatic change.
+Definitions were checked in Priberam, including
+[*rolé*](https://dicionario.priberam.org/rol%C3%A9),
+[*mico*](https://dicionario.priberam.org/mico),
+[*paquerar*](https://dicionario.priberam.org/paquerar),
+[*pão-duro*](https://dicionario.priberam.org/p%C3%A3o-duro) and
+[*collant*](https://dicionario.priberam.org/collant).
+
+The additional `expressoes_ptBR_ptPT.xlsx` and `expressoes_pt_BR_pt_PT.xlsx`
+were also reviewed (386 expression rows, plus 15 grammar notes and an informational
+sheet). Repeated entries and existing conversions were not duplicated.
+Further additions include:
+
+| Brazilian form | European output |
+|---|---|
+| holerite(s) | recibo(s) de vencimento |
+| trem-bala / trens-bala(s) | comboio(s) de alta velocidade |
+| suco(s) de caixinha; suco(s) de mamão | sumo(s) de pacote; sumo(s) de papaia |
+| computador(es) de mesa | computador(es) de secretária |
+| mensagem/mensagens inbox | mensagem/mensagens privada(s) |
+| captura(s) de tela | captura(s) de ecrã |
+| pão francês / pães franceses | papo-seco / papos-secos |
+| um escanteio / os escanteios | um canto / os cantos |
+| zagueiro(s) / zagueira(s) | defesa-central / defesas-centrais, preserving gender |
+| a mexerica / as mexericas | a tangerina / as tangerinas |
+| baixar/salvar um arquivo | descarregar/guardar um ficheiro, including conjugated forms |
+| dar rolê; dar uma força; dar uma escapada | dar uma volta; dar uma ajuda; dar uma escapadela |
+| puxar assunto; jogar conversa fora | meter conversa; conversar (with existing *falar* mappings) |
+| encher linguiça | encher chouriços, not literal sausage stuffing |
+| contar uma(s) parada(s) | contar uma(s) coisa(s), excluding medical, military and bus-stop modifiers |
+| estar/ficar de saco cheio | estar/ficar farto, with explicit feminine/plural subject agreement |
+| falar/trabalhar/estudar/correr pra caramba | falar/trabalhar/estudar/correr imenso |
+| quebrar um/o galho | desenrascar, only with English help/favour confirmation and no literal branch evidence |
+
+Digital verb changes require an *arquivo(s)* object; they do not reinterpret
+rescuing someone, lowering one's head, or historical archives. They use the
+**Vocabulary** option and `construction-vocabulary` stage. New expressions use
+the same **Vocabulary**, **Colloquial** and `reference-idioms` switches as above.
+Article-bound *escanteio* and *mexerica* avoid confusing nouns with verb forms.
+Already shared phrases such as *de fininho*, *encher o saco*, *não é a minha praia*
+and *uma mão lava a outra* need no forced rewrite. Adjectival intensifiers are
+not changed into ungrammatical forms such as *bonito imenso*.
+
+The spreadsheets are suggestions, not literal translation authorities:
+*boleto* is not automatically *Multibanco*, *SUS* is not *SNS*, and
+*atestado médico* does not always mean sick leave (*baixa médica*).
+No blanket replacements were added for *bagulho*, *sacada*, *rodoviária*,
+*matéria*, *prova*, *vagem* or generic *mamão*. Definitions were checked in
+Priberam, including [*holerite*](https://dicionario.priberam.org/holerite),
+[*trem-bala*](https://dicionario.priberam.org/trem-bala),
+[*escanteio*](https://dicionario.priberam.org/escanteio),
+[*mexerica*](https://dicionario.priberam.org/mexerica),
+[*linguiça*](https://dicionario.priberam.org/lingui%C3%A7a) and
+[*galho*](https://dicionario.priberam.org/galho).
 
 A single run gives the final result: rules are re-applied until the text stops changing,
 so a rule whose output enables another rule (*Me coloque na espera* → *Coloque-me na
@@ -31,7 +178,8 @@ espera* → *Coloque-me em espera*; *Nossa força-tarefa* → *A nossa equipa es
 completed in one run. Run the plugin **once** on Brazilian text. Running it again on
 already converted text can still misread a few European words that are also Brazilian
 words with another meaning (*fato* = suit vs. BR *fato* = fact; *apelido* = surname vs.
-BR *apelido* = nickname), so untick those if they appear.
+BR *apelido* = nickname; *propina* = tuition fee vs. BR *propina* = bribe), so untick
+those if they appear.
 
 Comparing with real PT-PT subtitles adds narrow search-context rules (*Não acho meu iPod* →
 *Não encontro o meu iPod*, *Nunca acharam o corpo* → *Nunca encontraram o corpo*),
@@ -178,7 +326,13 @@ These rules change Portuguese constructions, rather than merely adding review wa
   *custar um braço e uma perna* → *custar os olhos da cara*,
   *Estou todo ouvidos* → *Sou todo ouvidos*, *É por conta da casa* →
   *É oferta da casa*, *derramar os feijões* → *contar tudo*, and
-  *uma vez numa lua azul* → *muito de vez em quando*. Concrete spill contexts
+  *uma vez numa lua azul* → *muito de vez em quando*.
+  Complete *Estou quebrado/quebrada* utterances become *Estou sem dinheiro*
+  only for a complete English *I'm broke/skint* utterance, or *Estou de rastos*
+  for *I'm beat/knackered*. Negated, third-person, mixed-sentence and
+  literal *I'm broken* references do not trigger this slang correction.
+  These corrections require **Vocabulary** and **Colloquial** and respect
+  the `reference-idioms` stage switch. Concrete spill contexts
   are excluded. No reference, unrelated English or an absent Portuguese
   construction means no automatic idiom replacement.
 
@@ -733,11 +887,11 @@ names differ after the episode code (`Show.S01E01.720p.pt-br.srt` and
 - **English idiom hints:** when the English line has an idiom that Brazilian subtitles often
   translate badly or literally (*bust my hump*, *bust my chops*, *piece of cake*, *pull my leg*,
   *kick the bucket*, *the last straw*, *blow off steam*, *in a nutshell*, *by the book*,
-  about 40 in all), the line gets a note with the PT-PT equivalent, e.g. *Hint: the English “bust
+  and selected American/British expressions described below), the line gets a note with the PT-PT equivalent, e.g. *Hint: the English “bust
   my hump” is an idiom - in PT-PT: dar cabo das costas / matar-se a trabalhar*. There is no note
   when the line already has one of the expected words (*cabo*, *canja*, *gozar*…). Nothing is
-  changed. A typical TV season has about 20 such idioms.
-  The local models are not used for this: *Botei o meu na reta para conseguir prender
+  changed by the hint itself.
+  These hints do not need local models: *Botei o meu na reta para conseguir prender
   esse cara* scores 0.61 against *I busted my hump trying to lock that guy up*, while the episode's
   median is 0.68 and correct lines that are split differently score far lower, so a MiniLM
   threshold cannot tell a bad translation from a good one. Gervásio scores fluency, not
@@ -772,6 +926,10 @@ saved next to the model).
 
 Under **Extra checks** in the same section. They run after the rules, when the window opens
 (or with **Run checks**), and the results stay until the window closes.
+Results are tied to the cue index, original/converted text, previous Portuguese cue
+and aligned English text. Identical Portuguese lines in different contexts do not share
+model decisions or warnings. Changing the meaning-check or judge switch clears the
+cached results; run checks again to obtain results for the current selection.
 
 - **Flag meaning changes (MiniLM)** (ticked by default; needs the MiniLM model and
   llama-server above) marks a converted line for review when its meaning seems to have moved
@@ -795,6 +953,35 @@ Under **Extra checks** in the same section. They run after the rules, when the w
   meaning despite its missing infinitive ending. Vulkan accelerates the same model, not its grammar
   detection. Grammar errors are handled by the conversion rules and the separate all-line grammar review,
   and MiniLM only flags: it cannot write a new translation. The English cue is shown next to the line.
+  **Idiom-aware supplementary review:** the supplied
+  `american_british_english_expressions_pt_PT.xlsx` (237 rows, including repeated
+  expressions) was reviewed against the existing hints. Selected missing expressions
+  now have PT-PT hints and short, manually reviewed plain-English readings:
+  *on your tod* → *alone*, *full of beans* → *very energetic*,
+  *pay through the nose* → *pay an excessive price*,
+  *back to square one* → *starting again*, and
+  *a wild goose chase* → *a futile search*, among others.
+  With the meaning check enabled, MiniLM compares both the original BR line and the
+  converted line with this additional reading **inside the original English cue**.
+  For example, *We arrived in the nick of time to help her* becomes the scoring-only
+  reading *We arrived just before it was too late to help her*.
+  This also covers short expressions excluded by the ordinary three-word comparison.
+  Low similarity (below 0.45) or a before/after drop (0.10, or 0.04 with a baseline
+  of at least 0.60) adds a *possible English idiom* note with both scores.
+  It never suppresses a warning from the original English comparison, modifies the
+  source English, changes timing/alignment, retrains MiniLM or supplies Portuguese
+  answers to the scorer. A paraphrase can still misread a literal use; every such
+  note explicitly asks for a context check. No accuracy improvement is claimed
+  without evaluation on labelled examples.
+  The workbook is not imported blindly: ambiguous items such as *cheers*, *I'm down*,
+  *make up* and *out of pocket* have no new blanket reading or automatic replacement.
+  Shared PT idioms do not need rewriting, and misleading suggestions are excluded:
+  *wild goose chase* means a futile search, not necessarily a treasure hunt;
+  *get cold feet* is losing courage, not *arrear-se* (see
+  [Priberam: arrear](https://dicionario.priberam.org/arrear)).
+  Hints and guarded conversion rules work without models; supplementary similarity
+  scores require the existing local MiniLM installation and the meaning-check switch.
+  As with the other meaning flags, these scores are shown in the window, not batch mode.
 - **Gervásio PT-PT judge** (off by default; **Download Gervásio PT-PT (4.9 GB)**) uses
   [Gervásio 8B PT-PT](https://huggingface.co/PORTULAN/gervasio-8b-portuguese-ptpt-decoder), a
   European Portuguese language model, to choose between a few fixed alternatives when the
@@ -853,6 +1040,11 @@ For a manual self-contained install, use the matching per-OS `plugin.json` produ
 the release workflow, then copy the **entire** published
 `BrazilianToEuropeanPortuguese` folder (including the manifest and all dependencies)
 into Subtitle Edit 5's `Plugins` folder. Do not copy only the executable or DLL.
+Publishing into a repository's `publish` folder does not update Subtitle Edit's installed
+copy. Close the plugin window before replacing the installed package, then reopen it.
+If an expected rule appears absent, compare the installed and published DLL hashes
+(`sha256sum` on Linux, `Get-FileHash` on Windows), rather than relying on a version
+number that may be shared by multiple local builds.
 The source `plugin.json` uses the normal .NET entry-point format; release packages
 replace it with the platform-specific executable manifest.
 
@@ -874,6 +1066,22 @@ second-pass stability, inflections, negative examples, reference/formality guard
 settings serialization and rule-group/stage suppression. The native preview test
 also verifies that conversational style is initially off and recomputes proposals
 when toggled.
+It also tests the reported two-line *contar uma parada* cue with pre-1990 spelling
+and dictionary validation enabled, immediate Vocabulary/Pronoun checkbox changes,
+and isolation/invalidation of context-dependent model results. The settings-collapse
+test checks an increase of more than 100 pixels in review-list height, unchanged
+proposal objects, restored expander state and accessible arrow labels.
+
+Additional opt-in model checks:
+
+- `PTPT_TEST_IDIOM_MODEL=1`: actual MiniLM scores for an idiomatic versus literal
+  translation and the reported two-line cue. `PTPT_EMBEDDING_DIR` can point at an
+  existing plugin model/runtime directory.
+- `PTPT_TEST_FILE_REVIEW=1`: full local subtitle alignment, conversion, meaning
+  review, dictionary validation, and cue/timing/placeholder integrity.
+  Supply `PTPT_SOURCE_SRT` and `PTPT_ENGLISH_SRT`. On Linux, set `XDG_DATA_HOME`
+  to the existing application's data directory if its models are installed there
+  (for example a Flatpak data directory). This check never rewrites the input SRTs.
 
 This is a regression benchmark, not a measured accuracy claim on arbitrary episodes.
 Existing ambiguous variant collisions such as *fato* (suit/fact) and *apelido*

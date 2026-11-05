@@ -10,6 +10,472 @@ public sealed class ConverterTests
     private static void AssertConverts(string br, string pt) => Assert.Equal(pt, Converter.Convert(br));
 
     [Theory]
+    [InlineData("porque você sempre sabe\nquando eu tô mentindo.", "porque sabes sempre\nquando estou a mentir.")]
+    [InlineData("<i>porque você sempre sabe\nquando eu tô mentindo.</i>", "<i>porque sabes sempre\nquando estou a mentir.</i>")]
+    [InlineData("Tu sempre sabes quando eu estou mentindo.", "Tu sabes sempre quando estou a mentir.")]
+    [InlineData("Ela sempre chega cedo.", "Ela chega sempre cedo.")]
+    [InlineData("Eles sempre trabalham aqui.", "Eles trabalham sempre aqui.")]
+    [InlineData("Sempre encontro uma solução.", "Encontro sempre uma solução.")]
+    [InlineData("Porque sempre soubeste.", "Porque soubeste sempre.")]
+    [InlineData("SEMPRE CHEGO CEDO.", "CHEGO SEMPRE CEDO.")]
+    [InlineData("porque SEMPRE SABES.", "porque SABES SEMPRE.")]
+    [InlineData("Porque sempre chegavam cedo.", "Porque chegavam sempre cedo.")]
+    [InlineData("Eles sempre trabalharão aqui.", "Eles trabalharão sempre aqui.")]
+    [InlineData("Quando eu estou a trabalhar.", "Quando estou a trabalhar.")]
+    [InlineData("Se eu estou a mentir.", "Se estou a mentir.")]
+    [InlineData("Ele sabe quando eu estou a estudar.", "Ele sabe quando estou a estudar.")]
+    public void NaturalHabitualWordOrderAndRecoverableProgressiveSubjects(string source, string expected)
+    {
+        AssertConverts(source, expected);
+        AssertConverts(expected, expected);
+    }
+
+    [Theory]
+    [InlineData("Nem sempre sabes.")]
+    [InlineData("Quase sempre trabalho.")]
+    [InlineData("Para sempre trabalho.")]
+    [InlineData("Como sempre digo.")]
+    [InlineData("Sempre que chego.")]
+    [InlineData("Sempre posso ajudar.")]
+    [InlineData("Sempre estou a trabalhar.")]
+    [InlineData("Sempre me dizem isso.")]
+    [InlineData("Sempre fazer o melhor.")]
+    [InlineData("Quando eu estava a trabalhar.")]
+    [InlineData("Quando eu também estou a trabalhar.")]
+    [InlineData("Quando só eu estou a trabalhar.")]
+    [InlineData("Quando eu estou a trabalhar e tu estás a dormir.")]
+    public void NaturalWordOrderPreservesScopeCliticsAndSubjectContrast(string text) => AssertConverts(text, text);
+
+    [Fact]
+    public void NaturalWordOrderRespectsColloquialAndStageSwitches()
+    {
+        const string text = "porque sempre sabes quando eu estou a mentir.";
+        Assert.Equal(text, new PortugueseConverter(new ConversionOptions(Colloquial: false)).Convert(text));
+        Assert.Equal(text, new PortugueseConverter(new ConversionOptions(DisabledRules: "natural-word-order")).Convert(text));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ScreenshotTellThingConvertsWithBothOrthographies(bool postAgreement)
+    {
+        const string source = "Você não lembra de mim,\nmas vou te contar uma parada";
+        const string english = "You don't remember me, but I have something to tell you";
+        var converter = new PortugueseConverter(new ConversionOptions(PostAgreement: postAgreement, ValidateSpelling: true));
+        var rules = new List<RuleChange>();
+        var result = converter.Convert(source, null, ReferenceHint.FromText(english), rules);
+        Assert.Equal("Não te lembras de mim,\nmas vou contar-te uma coisa", result);
+        Assert.Contains(rules, r => r.Id == "reference-idioms");
+        Assert.Contains(rules, r => r.Id == "pronouns");
+    }
+
+    [Theory]
+    [InlineData("Vou te contar uma parada.", "Vou contar-te uma coisa.")]
+    [InlineData("Vou contar-te uma parada.", "Vou contar-te uma coisa.")]
+    [InlineData("Vou-te contar uma parada.", "Vou-te contar uma coisa.")]
+    [InlineData("Mas vou contar uma parada.", "Mas vou contar uma coisa.")]
+    [InlineData("Não vou te contar uma parada.", "Não vou contar-te uma coisa.")]
+    [InlineData("Contar-lhe uma parada.", "Contar-lhe uma coisa.")]
+    public void TellThingComposesWithCliticPlacement(string source, string expected) => AssertConverts(source, expected);
+
+    [Theory]
+    [InlineData("O holerite chegou.", "O recibo de vencimento chegou.")]
+    [InlineData("Os holerites chegaram.", "Os recibos de vencimento chegaram.")]
+    [InlineData("Um trem-bala novo.", "Um comboio de alta velocidade novo.")]
+    [InlineData("Os trens-bala.", "Os comboios de alta velocidade.")]
+    [InlineData("Os trens-balas.", "Os comboios de alta velocidade.")]
+    [InlineData("Um suco de caixinha.", "Um sumo de pacote.")]
+    [InlineData("Os sucos de caixinha.", "Os sumos de pacote.")]
+    [InlineData("O computador de mesa.", "O computador de secretária.")]
+    [InlineData("Os computadores de mesa.", "Os computadores de secretária.")]
+    [InlineData("Uma mensagem inbox.", "Uma mensagem privada.")]
+    [InlineData("As mensagens inbox.", "As mensagens privadas.")]
+    [InlineData("Uma captura de tela.", "Uma captura de ecrã.")]
+    [InlineData("As capturas de tela.", "As capturas de ecrã.")]
+    [InlineData("Um pão francês.", "Um papo-seco.")]
+    [InlineData("Os pães franceses.", "Os papos-secos.")]
+    [InlineData("Um escanteio.", "Um canto.")]
+    [InlineData("Os escanteios.", "Os cantos.")]
+    [InlineData("O zagueiro chegou.", "O defesa-central chegou.")]
+    [InlineData("Os zagueiros chegaram.", "Os defesas-centrais chegaram.")]
+    [InlineData("A zagueira chegou.", "A defesa-central chegou.")]
+    [InlineData("As zagueiras chegaram.", "As defesas-centrais chegaram.")]
+    [InlineData("Uma mexerica madura.", "Uma tangerina madura.")]
+    [InlineData("As mexericas maduras.", "As tangerinas maduras.")]
+    [InlineData("Um suco de mamão.", "Um sumo de papaia.")]
+    public void AdditionalWorkbookVocabulary(string source, string expected)
+    {
+        AssertConverts(source, expected);
+        Assert.Equal(expected, Converter.Convert(expected));
+        Assert.Equal(source, new PortugueseConverter(new ConversionOptions(Vocabulary: false)).Convert(source));
+    }
+
+    [Theory]
+    [InlineData("Me conta uma parada.", "Conta-me uma coisa.")]
+    [InlineData("Ela contou uma parada.", "Ela contou uma coisa.")]
+    [InlineData("Contaram umas paradas.", "Contaram umas coisas.")]
+    [InlineData("Ela puxou assunto.", "Ela meteu conversa.")]
+    [InlineData("Eles puxavam assunto.", "Eles metiam conversa.")]
+    [InlineData("Vou puxar assunto.", "Vou meter conversa.")]
+    [InlineData("Ela estava puxando assunto.", "Ela estava a meter conversa.")]
+    [InlineData("Eles jogaram conversa fora.", "Eles falaram.")]
+    [InlineData("Vou jogar conversa fora.", "Vou falar.")]
+    [InlineData("Ele está enchendo linguiça.", "Ele está a encher chouriços.")]
+    [InlineData("Ela encheu linguiça.", "Ela encheu chouriços.")]
+    [InlineData("Dá uma força!", "Dá uma ajuda!")]
+    [InlineData("Ele deu uma força.", "Ele deu uma ajuda.")]
+    [InlineData("Dei uma escapada.", "Dei uma escapadela.")]
+    [InlineData("Vou dar rolê.", "Vou dar uma volta.")]
+    [InlineData("Vou dar uns rolês.", "Vou dar umas voltas.")]
+    [InlineData("Estou de saco cheio.", "Estou farto.")]
+    [InlineData("Ela ficou de saco cheio.", "Ela ficou farta.")]
+    [InlineData("Elas ficaram de saco cheio.", "Elas ficaram fartas.")]
+    [InlineData("Nós estamos de saco cheio.", "Nós estamos fartos.")]
+    [InlineData("Ela não ficou de saco cheio.", "Ela não ficou farta.")]
+    [InlineData("Ela já está de saco cheio.", "Ela já está farta.")]
+    [InlineData("Ele falou pra caramba.", "Ele falou imenso.")]
+    [InlineData("Falar para caramba.", "Falar imenso.")]
+    [InlineData("PUXEI ASSUNTO.", "METI CONVERSA.")]
+    [InlineData("Ela puxou\nassunto.", "Ela meteu\nconversa.")]
+    [InlineData("<i>Ela puxou assunto.</i>", "<i>Ela meteu conversa.</i>")]
+    public void AdditionalWorkbookExpressions(string source, string expected)
+    {
+        AssertConverts(source, expected);
+        Assert.Equal(expected, Converter.Convert(expected));
+    }
+
+    [Theory]
+    [InlineData("Baixei um arquivo.", "Descarreguei um ficheiro.", "Baixei um arquivo.")]
+    [InlineData("Ela salvou os arquivos.", "Ela guardou os ficheiros.", "Ela salvou os arquivos.")]
+    [InlineData("Vou salvar o arquivo.", "Vou guardar o ficheiro.", "Vou salvar o arquivo.")]
+    [InlineData("Ela está baixando o arquivo.", "Ela está a descarregar o ficheiro.", "Ela está a baixar o arquivo.")]
+    [InlineData("Não salve este arquivo.", "Não guardes este ficheiro.", "Não salves este arquivo.")]
+    [InlineData("BAIXEI O ARQUIVO.", "DESCARREGUEI O FICHEIRO.", "BAIXEI O ARQUIVO.")]
+    [InlineData("Baixei um\narquivo.", "Descarreguei um\nficheiro.", "Baixei um\narquivo.")]
+    public void AdditionalWorkbookDigitalFiles(string source, string expected, string withoutVocabulary)
+    {
+        AssertConverts(source, expected);
+        Assert.Equal(expected, Converter.Convert(expected));
+        Assert.Equal(withoutVocabulary, new PortugueseConverter(new ConversionOptions(Vocabulary: false)).Convert(source));
+    }
+
+    [Theory]
+    [InlineData("Ele quebrou um galho.", "He did me a favor.", "Ele desenrascou.")]
+    [InlineData("Ele quebrou o galho.", "He broke the branch.", "Ele quebrou o galho.")]
+    [InlineData("Ele quebrou um galho.", "He helped cut a branch.", "Ele partiu um galho.")]
+    public void AdditionalWorkbookLiteralBranchesNeedReference(string source, string english, string expected)
+    {
+        var hint = ReferenceHint.FromText(english);
+        Assert.Equal(expected, Converter.Convert(source, null, hint));
+        Assert.Equal(expected, Converter.Convert(expected, null, hint));
+    }
+
+    [Theory]
+    [InlineData("Ele salvou a criança.")]
+    [InlineData("Ela baixou a cabeça.")]
+    [InlineData("O arquivo histórico.")]
+    [InlineData("A segurança rodoviária.")]
+    [InlineData("A balada é uma canção.")]
+    [InlineData("A matéria está na mesa.")]
+    [InlineData("Uma prova do crime.")]
+    [InlineData("Boleto e atestado médico.")]
+    [InlineData("SUS e SNS.")]
+    [InlineData("Ficar a ver navios.")]
+    [InlineData("Dar o braço a torcer.")]
+    [InlineData("Ela mexerica sobre todos.")]
+    [InlineData("Puxou o assunto da reunião.")]
+    [InlineData("Eu escanteio o jogador.")]
+    [InlineData("O motor deu uma força de 30 newtons.")]
+    [InlineData("Ele é bonito para caramba.")]
+    public void AdditionalWorkbooksPreserveAmbiguousAndSharedTerms(string source) =>
+        AssertConverts(source, source);
+
+    [Fact]
+    public void AdditionalWorkbookMedicalParadaKeepsExistingTranslation()
+    {
+        AssertConverts("Contou uma parada cardíaca.", "Contou uma paragem cardíaca.");
+        AssertConverts("Contou umas paradas cardíacas.", "Contou umas paradas cardíacas.");
+    }
+
+    [Fact]
+    public void AdditionalWorkbookLiteralSausageIsNotPluralized()
+    {
+        AssertConverts("Encheu linguiça com carne.", "Encheu chouriço com carne.");
+        var hint = ReferenceHint.FromText("He stuffed a sausage.");
+        Assert.Equal("Ele encheu chouriço.", Converter.Convert("Ele encheu linguiça.", null, hint));
+    }
+
+    [Fact]
+    public void AdditionalWorkbookDigitalFilesRespectStageSuppression()
+    {
+        Assert.Equal("Baixei um arquivo.", new PortugueseConverter(
+            new ConversionOptions(DisabledRules: "construction-vocabulary")).Convert("Baixei um arquivo."));
+    }
+
+    [Theory]
+    [InlineData("Ela puxou assunto.")]
+    [InlineData("Dei uma força.")]
+    [InlineData("Estou de saco cheio.")]
+    public void AdditionalWorkbookExpressionsRespectToggles(string source)
+    {
+        Assert.Equal(source, new PortugueseConverter(new ConversionOptions(Vocabulary: false)).Convert(source));
+        Assert.Equal(source, new PortugueseConverter(new ConversionOptions(Colloquial: false)).Convert(source));
+        Assert.Equal(source, new PortugueseConverter(new ConversionOptions(DisabledRules: "reference-idioms")).Convert(source));
+    }
+
+    [Theory]
+    [InlineData("Uma breja gelada.", "Uma cerveja gelada.")]
+    [InlineData("Duas brejas.", "Duas cervejas.")]
+    [InlineData("A bufunfa acabou.", "A massa acabou.")]
+    [InlineData("Vou pegar um busão.", "Vou apanhar um autocarro.")]
+    [InlineData("Os busões chegaram.", "Os autocarros chegaram.")]
+    [InlineData("Ela pegou um busão.", "Ela apanhou um autocarro.")]
+    [InlineData("Uma fita adesiva nova.", "Uma fita-cola nova.")]
+    [InlineData("As fitas adesivas.", "As fitas-cola.")]
+    [InlineData("O flanelinha chegou.", "O arrumador de carros chegou.")]
+    [InlineData("Os flanelinhas chegaram.", "Os arrumadores de carros chegaram.")]
+    [InlineData("Uma sunga nova.", "Um slip de banho novo.")]
+    [InlineData("As sungas novas.", "Os slips de banho novos.")]
+    [InlineData("Ele paquerou a Ana.", "Ele engatou a Ana.")]
+    [InlineData("Elas paqueravam.", "Elas engatavam.")]
+    [InlineData("Não paqueres.", "Não engates.")]
+    [InlineData("Uma meia-calça nova.", "Uns collants novos.")]
+    [InlineData("A meia-calça está rasgada.", "Os collants estão rasgados.")]
+    [InlineData("As meias-calças novas.", "Os collants novos.")]
+    [InlineData("Minha meia-calça está azul.", "Os meus collants estão azuis.")]
+    [InlineData("Aquela meia-calça velha.", "Aqueles collants velhos.")]
+    [InlineData("A meia-calça vermelha.", "Os collants vermelhos.")]
+    [InlineData("UMA FITA ADESIVA.", "UMA FITA-COLA.")]
+    public void VerifiedSpreadsheetVocabulary(string source, string expected)
+    {
+        AssertConverts(source, expected);
+        Assert.Equal(expected, Converter.Convert(expected));
+        Assert.Equal(source, new PortugueseConverter(new ConversionOptions(Vocabulary: false)).Convert(source));
+    }
+
+    [Theory]
+    [InlineData("A mensalidade da faculdade.", "A propina.")]
+    [InlineData("As mensalidades da faculdade.", "As propinas.")]
+    public void UniversityFeesAreNotConvertedToBribesInTheSameRun(string source, string expected) =>
+        AssertConverts(source, expected);
+
+    [Theory]
+    [InlineData("Vou dar um rolê.", "Vou dar uma volta.")]
+    [InlineData("Dei um rolezinho.", "Dei uma voltinha.")]
+    [InlineData("Demos uns rolês.", "Demos umas voltas.")]
+    [InlineData("DÁ UM ROLÊ!", "DÁ UMA VOLTA!")]
+    [InlineData("Vou dar um\nrolê.", "Vou dar uma\nvolta.")]
+    [InlineData("Ela trocou uma ideia com a Ana.", "Ela falou com a Ana.")]
+    [InlineData("Eles trocaram uma ideia.", "Eles falaram.")]
+    [InlineData("Vou trocar uma ideia.", "Vou falar.")]
+    [InlineData("Ela bateu um papo com a Ana.", "Ela falou com a Ana.")]
+    [InlineData("Nós batíamos papo.", "Nós conversávamos.")]
+    [InlineData("Paguei mico.", "Passei vergonha.")]
+    [InlineData("Ela pagou um mico.", "Ela passou vergonha.")]
+    [InlineData("Elas pagaram mico.", "Elas passaram vergonha.")]
+    [InlineData("Vou pagar mico.", "Vou passar vergonha.")]
+    [InlineData("PAGUEI MICO!", "PASSEI VERGONHA!")]
+    [InlineData("<i>Ela pagou mico.</i>", "<i>Ela passou vergonha.</i>")]
+    [InlineData("Ela estava pagando mico.", "Ela estava a passar vergonha.")]
+    [InlineData("Ela ficou de bobeira.", "Ela ficou sem fazer nada.")]
+    [InlineData("Elas ficaram de bobeira.", "Elas ficaram sem fazer nada.")]
+    [InlineData("Ele fala abobrinha.", "Ele fala disparates.")]
+    [InlineData("Eles falavam abobrinhas.", "Eles falavam disparates.")]
+    [InlineData("Tomei uma breja.", "Bebi uma cerveja.")]
+    [InlineData("Tomamos brejas.", "Bebemos cervejas.")]
+    [InlineData("Ele estava tomando uma breja.", "Ele estava a beber uma cerveja.")]
+    [InlineData("Ela tinha tomado uma breja.", "Ela tinha bebido uma cerveja.")]
+    [InlineData("Ela tinha pagado mico.", "Ela tinha passado vergonha.")]
+    [InlineData("Ele tinha dado um rolê.", "Ele tinha dado uma volta.")]
+    [InlineData("Ela estava trocando uma ideia.", "Ela estava a falar.")]
+    public void VerifiedSpreadsheetExpressions(string source, string expected)
+    {
+        AssertConverts(source, expected);
+        Assert.Equal(expected, Converter.Convert(expected));
+    }
+
+    [Theory]
+    [InlineData("Troquei uma ideia por outra.")]
+    [InlineData("Paguei o bilhete.")]
+    [InlineData("O mico subiu à árvore.")]
+    [InlineData("O bife rolê está pronto.")]
+    [InlineData("Errei de bobeira.")]
+    [InlineData("Falar de abobrinha.")]
+    [InlineData("Gatinho, mala, descarga, vitamina, grampo.")]
+    [InlineData("Uma flanelinha macia.")]
+    [InlineData("O pão-duro está na cozinha.")]
+    [InlineData("Estou com pressa.")]
+    [InlineData("Fazer uma vaquinha.")]
+    [InlineData("A água com gás.")]
+    [InlineData("A injeção e o preservativo.")]
+    public void SpreadsheetDoesNotIntroduceUnsafeLiteralReplacements(string source) =>
+        AssertConverts(source, source);
+
+    [Theory]
+    [InlineData("Vou dar um rolê.")]
+    [InlineData("Ela trocou uma ideia.")]
+    [InlineData("Paguei mico.")]
+    public void SpreadsheetExpressionsRespectDisabledGroups(string source)
+    {
+        Assert.Equal(source, new PortugueseConverter(new ConversionOptions(Colloquial: false)).Convert(source));
+        Assert.Equal(source, new PortugueseConverter(new ConversionOptions(Vocabulary: false)).Convert(source));
+    }
+
+    [Theory]
+    [InlineData("Ele é pão-duro.", "He's stingy.", "Ele é forreta.")]
+    [InlineData("São pães-duros.", "They're cheapskates.", "São forretas.")]
+    [InlineData("Um pão-duro.", "A kitchen spatula.", "Um pão-duro.")]
+    [InlineData("O pão está duro.", "The bread is hard.", "O pão está duro.")]
+    public void SpreadsheetAmbiguousSlangRequiresReference(string source, string english, string expected)
+    {
+        var hint = ReferenceHint.FromText(english);
+        Assert.Equal(expected, Converter.Convert(source, null, hint));
+        Assert.Equal(expected, Converter.Convert(expected, null, hint));
+        Assert.Equal(source, Converter.Convert(source));
+    }
+
+    [Fact]
+    public void SpreadsheetExpressionsRespectStageSuppressionAndTrace()
+    {
+        var trace = new List<RuleChange>();
+        Assert.Equal("Passei vergonha.", Converter.Convert("Paguei mico.", trace: trace));
+        Assert.Contains(trace, r => r.Id == "reference-idioms");
+        Assert.Equal("Paguei mico.", new PortugueseConverter(
+            new ConversionOptions(DisabledRules: "reference-idioms")).Convert("Paguei mico."));
+    }
+
+    [Theory]
+    [InlineData("Ned, quem você acha que vê isso?", "Ned, who do you think is actually watching this?", "Ned, quem achas que vê isto?")]
+    [InlineData("Quem você pensa que trabalha aqui?", "Who do you think works here?", "Quem pensas que trabalha aqui?")]
+    [InlineData("Quem você achava que ganhou?", "Who did you think won?", "Quem achavas que ganhou?")]
+    [InlineData("O que você acha que mudou?", "What do you think changed?", "O que achas que mudou?")]
+    [InlineData("Qual equipa você acha que ganha?", "Which team do you think wins?", "Qual equipa achas que ganha?")]
+    [InlineData("Quem tu imaginas que sabe?", "Who do you imagine knows?", "Quem tu imaginas que sabe?")]
+    [InlineData("Quem achas\nque vê isso?", "Who do you think sees this?", "Quem achas\nque vê isto?")]
+    [InlineData("QUEM VOCÊ ACHA QUE VÊ ISSO?", "Who do you think sees this?", "QUEM ACHAS QUE VÊ ISTO?")]
+    [InlineData("<i>Quem você acha que chegou?</i>", "Who do you think arrived?", "<i>Quem achas que chegou?</i>")]
+    [InlineData("Quem você acha que pode ajudar?", "Who do you think can help?", "Quem achas que pode ajudar?")]
+    [InlineData("Quem você acha que vai ganhar?", "Who do you think will win?", "Quem achas que vai ganhar?")]
+    [InlineData("Quem você acha que vê? Você sabe que chegou.", "Who do you think sees? You know you arrived.", "Quem achas que vê? Sabes que chegaste.")]
+    [InlineData("Quem você acredita que chegou?", "Who do you believe arrived?", "Quem acreditas que chegou?")]
+    [InlineData("Quem você disse que viu isso?", "Who did you say saw this?", "Quem disseste que viu isto?")]
+    [InlineData("Quem você acha que realmente vê isso?", "Who do you think actually sees this?", "Quem achas que realmente vê isto?")]
+    public void ExtractedQuestionDoesNotMakeEmbeddedSubjectSecondPerson(string source, string english, string expected)
+    {
+        var hint = ReferenceHint.FromText(english);
+        Assert.Equal(expected, Converter.Convert(source, null, hint));
+        Assert.Equal(expected, Converter.Convert(expected, null, hint));
+    }
+
+    [Theory]
+    [InlineData("Quem você acha que viu?", "Who do you think you saw?", "Quem achas que viste?")]
+    [InlineData("O que você pensa que fez?", "What do you think you did?", "O que pensas que fizeste?")]
+    [InlineData("Quem você acha que pode ajudar?", "Who do you think you can help?", "Quem achas que podes ajudar?")]
+    [InlineData("Quem você acha que você vê?", "Who do you think you see?", "Quem achas que vês?")]
+    [InlineData("Quem você disse que viu?", "Who did you say you saw?", "Quem disseste que viste?")]
+    [InlineData("Onde você acha que trabalhou?", "Where do you think you worked?", "Onde achas que trabalhaste?")]
+    [InlineData("Por que você acha que fez isso?", "Why do you think you did this?", "Porque achas que fizeste isto?")]
+    public void ExtractedObjectsKeepConfirmedSecondPersonSubject(string source, string english, string expected)
+    {
+        var hint = ReferenceHint.FromText(english);
+        Assert.Equal(expected, Converter.Convert(source, null, hint));
+        Assert.Equal(expected, Converter.Convert(expected, null, hint));
+    }
+
+    [Theory]
+    [InlineData("Quem você acha que pode ajudar?", "Quem achas que pode ajudar?")]
+    [InlineData("Quem você pensa que consegue ganhar?", "Quem pensas que consegue ganhar?")]
+    public void AmbiguousExtractedQuestionsDoNotAssumeSubjectContinuity(string source, string expected) =>
+        AssertConverts(source, expected);
+
+    [Fact]
+    public void ExtractedQuestionGuardRespectsAddressOptionsWithoutDependingOnColloquial()
+    {
+        const string source = "Ned, quem você acha que vê isso?";
+        var hint = ReferenceHint.FromText("Ned, who do you think is actually watching this?");
+        Assert.Equal("Ned, quem achas que vê isto?",
+            new PortugueseConverter(new ConversionOptions(Colloquial: false)).Convert(source, null, hint));
+        Assert.Equal("Ned, quem acha que vê isto?",
+            Converter.Convert(source, null, hint! with { FormalAddress = true }));
+        Assert.Equal("Ned, quem você acha que vê isto?",
+            new PortugueseConverter(new ConversionOptions(YouToTu: false)).Convert(source, null, hint));
+    }
+
+    [Theory]
+    [InlineData("Sabe o que aconteceu ontem?", "You know what happened yesterday?", "Sabes o que aconteceu ontem?")]
+    [InlineData("Sabe o que é aquilo?", "You know what that is?", "Sabes o que é aquilo?")]
+    [InlineData("Sabe o que era aquilo?", "You know what that was?", "Sabes o que era aquilo?")]
+    [InlineData("Sabe o que está acontecendo?", "You know what's happening?", "Sabes o que está a acontecer?")]
+    [InlineData("O que está acontecendo?", "What are you doing?", "O que está a acontecer?")]
+    [InlineData("O que é isso?", "What are you doing?", "O que é isso?")]
+    [InlineData("Acha que sabe o que aconteceu?", "You think you know what happened?", "Achas que sabes o que aconteceu?")]
+    [InlineData("Sabe o\nque aconteceu ontem?", "You know what happened yesterday?", "Sabes o\nque aconteceu ontem?")]
+    [InlineData("SABE O QUE ACONTECEU ONTEM?", "You know what happened yesterday?", "SABES O QUE ACONTECEU ONTEM?")]
+    public void ReferenceDoesNotTreatEmbeddedWhatAsYou(string source, string english, string expected)
+    {
+        var hint = ReferenceHint.FromText(english);
+        Assert.Equal(expected, Converter.Convert(source, null, hint));
+        Assert.Equal(expected, Converter.Convert(expected, null, hint));
+        var noYou = new PortugueseConverter(new ConversionOptions(YouToTu: false));
+        Assert.Equal(noYou.Convert(source), noYou.Convert(source, null, hint));
+    }
+
+    [Theory]
+    [InlineData("Se isso me preocupa, eu paro.")]
+    [InlineData("Se isto te assusta, espera.")]
+    [InlineData("Quando aquilo me preocupa, eu paro.")]
+    [InlineData("Não sei aonde isso me leva.")]
+    [InlineData("Se isso\nme preocupa, eu paro.")]
+    [InlineData("Se isso me preocupa, eu paro. Isso preocupa-me.")]
+    public void DemonstrativeSubjectsPreserveSubordinateProclisis(string text) =>
+        Assert.Equal(text, Converter.Convert(text));
+
+    [Theory]
+    [InlineData("Isso me preocupa.", "Isso preocupa-me.")]
+    [InlineData("Isto me assusta.", "Isto assusta-me.")]
+    [InlineData("Eu sei que isso me preocupa.", "Eu sei que isso me preocupa.")]
+    public void DemonstrativeSubjectsStillUseMainClauseEnclisis(string source, string expected)
+    {
+        Assert.Equal(expected, Converter.Convert(source));
+        Assert.Equal(expected, Converter.Convert(expected));
+        Assert.Equal(source, new PortugueseConverter(new ConversionOptions(Pronouns: false)).Convert(source));
+    }
+
+    [Theory]
+    [InlineData("Nos últimos quatro dias.")]
+    [InlineData("Nos próximos meses.")]
+    [InlineData("Nos péssimos resultados.")]
+    [InlineData("NOS ÚLTIMOS QUATRO DIAS.")]
+    [InlineData("Nos\núltimos quatro dias.")]
+    public void ContractedNosBeforeAdjectivesIsNotAClitic(string text)
+    {
+        Assert.Equal(text, Converter.Convert(text));
+    }
+
+    [Theory]
+    [InlineData("Nos vemos amanhã.", "Vemo-nos amanhã.")]
+    [InlineData("Nos encontramos amanhã.", "Encontramo-nos amanhã.")]
+    [InlineData("Nos diga a verdade.", "Diz-nos a verdade.")]
+    public void LeadingNosStillAttachesToRecognizedVerbs(string source, string expected)
+    {
+        Assert.Equal(expected, Converter.Convert(source));
+        Assert.Equal(expected, Converter.Convert(expected));
+    }
+
+    [Theory]
+    [InlineData("Que doideira!", "Que loucura!")]
+    [InlineData("São doideiras.", "São loucuras.")]
+    [InlineData("Vambora!", "Vamos embora!")]
+    [InlineData("VAMBORA!", "VAMOS EMBORA!")]
+    [InlineData("Bora lá!", "Bora lá!")]
+    public void AdditionalBrazilianSlangUsesEuropeanEquivalents(string source, string expected)
+    {
+        Assert.Equal(expected, Converter.Convert(source));
+        Assert.Equal(expected, Converter.Convert(expected));
+        Assert.Equal(source, new PortugueseConverter(new ConversionOptions(Vocabulary: false)).Convert(source));
+    }
+
+    [Theory]
     [InlineData("Este é o detetive que falei para vocês.", "Este é o detetive de que vos falei.")]
     [InlineData("Esta é a professora que falei para ela.", "Esta é a professora de que lhe falei.")]
     [InlineData("Esse é o livro que falei para nós.", "Esse é o livro de que nos falei.")]
@@ -78,10 +544,9 @@ public sealed class ConverterTests
     [InlineData("A síndica chegou.", "A encarregada do edifício chegou.")]
     public void SinglePassReachesFinalResult(string br, string pt) => AssertConverts(br, pt);
 
-    // Re-running on already converted text cannot tell PT-PT "fato" (suit) or "apelido" (surname)
-    // from Brazilian "fato" (fact) or "apelido" (nickname); every other result must be stable.
+    // Re-running cannot distinguish PT-PT fato/apelido/propina from their different Brazilian senses.
     private static readonly Regex AmbiguousOnRerun = new(
-        @"(?<![\p{L}-])(?:fatos?|apelidos?|comercia(?:l|is)|conversas)(?![\p{L}-])", RegexOptions.IgnoreCase);
+        @"(?<![\p{L}-])(?:fatos?|apelidos?|propinas?|comercia(?:l|is)|conversas)(?![\p{L}-])", RegexOptions.IgnoreCase);
 
     [Theory]
     [InlineData("Estavam armando uma cilada.", "Estavam a armar uma cilada.")]
@@ -533,7 +998,7 @@ public sealed class ConverterTests
     [InlineData("Os caquis e as berinjelas.", "Os dióspiros e as beringelas.")]
     [InlineData("Calças caqui.", "Calças caqui.")]
     [InlineData("Abobrinha grelhada.", "Curgete grelhada.")]
-    [InlineData("Falar abobrinha.", "Falar abobrinha.")]
+    [InlineData("Falar abobrinha.", "Falar disparates.")]
     [InlineData("A farinha de rosca.", "O pão ralado.")]
     [InlineData("Leite integral.", "Leite gordo.")]
     [InlineData("As balas de menta.", "Os rebuçados de menta.")]
@@ -925,6 +1390,11 @@ public sealed class ConverterTests
     [InlineData("Então soube que chegou cedo.", "Then I found out you arrived early.", "Então soube que chegaste cedo.")]
     [InlineData("Sabe que fui um oficial.", "You know I was an officer.", "Sabes que fui um oficial.")]
     [InlineData("Pensa que trabalhou muito.", "You think you worked hard.", "Pensas que trabalhaste muito.")]
+    [InlineData("Sabe o que fez ontem?", "You know what you did yesterday?", "Sabes o que fizeste ontem?")]
+    [InlineData("Sabe o que era?", "You know what you were?", "Sabes o que eras?")]
+    [InlineData("O que está fazendo aqui?", "What are you doing here?", "O que estás a fazer aqui?")]
+    [InlineData("O que pode fazer?", "What can you do?", "O que podes fazer?")]
+    [InlineData("Sei o que quer dizer.", "I know what you mean.", "Sei o que queres dizer.")]
     [InlineData("Ele sabe que foi para casa.", "He knows he went home.", "Ele sabe que foi para casa.")]
     [InlineData("Então soube que chegou cedo.", "Then I found out he arrived early.", "Então soube que chegou cedo.")]
     [InlineData("O que aconteceu?", "What happened to you?", "O que aconteceu?")]

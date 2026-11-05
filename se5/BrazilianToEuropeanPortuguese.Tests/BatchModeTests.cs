@@ -29,6 +29,99 @@ public sealed class BatchModeTests : IDisposable
         SubRipParser.Parse(response.Subtitle!.Native).Select(b => b.Text).ToList();
 
     [Fact]
+    public void Batch_ExtractedQuestionsPreserveSubjectAndDistinguishObjects()
+    {
+        var request = EpisodeRequest("Ned, quem você acha que vê isso?", true,
+            "Ned, who do you think is actually watching this?");
+        var response = BatchMode.BuildBatchResponse(request, WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Ned, quem achas que vê isto?" }, Texts(response));
+        Assert.Equal(SubRipParser.Parse(request.Subtitle.SubRip).Select(b => (b.StartMs, b.EndMs)),
+            SubRipParser.Parse(response.Subtitle!.Native).Select(b => (b.StartMs, b.EndMs)));
+        request = EpisodeRequest("Quem você acha que viu?", true, "Who do you think you saw?");
+        response = BatchMode.BuildBatchResponse(request, WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Quem achas que viste?" }, Texts(response));
+    }
+
+    [Fact]
+    public void Batch_HabitualWordOrderAndProgressiveSubjectKeepCueTimings()
+    {
+        var request = EpisodeRequest("porque você sempre sabe\nquando eu tô mentindo.", true,
+            "Because you always know when I'm lying.");
+        var response = BatchMode.BuildBatchResponse(request, WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "porque sabes sempre\nquando estou a mentir." }, Texts(response));
+        Assert.Equal(SubRipParser.Parse(request.Subtitle.SubRip).Select(b => (b.StartMs, b.EndMs)),
+            SubRipParser.Parse(response.Subtitle!.Native).Select(b => (b.StartMs, b.EndMs)));
+    }
+
+    [Fact]
+    public void Batch_EnglishSlangResolvesPortugueseOnlyWithReference()
+    {
+        var request = EpisodeRequest("Estou quebrada.", true, "I'm skint.");
+        var response = BatchMode.BuildBatchResponse(request, WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Estou sem dinheiro." }, Texts(response));
+        Assert.Equal(SubRipParser.Parse(request.Subtitle.SubRip).Select(b => (b.StartMs, b.EndMs)),
+            SubRipParser.Parse(response.Subtitle!.Native).Select(b => (b.StartMs, b.EndMs)));
+        request.Settings = (ConversionOptions.Default with { UseReference = false }).ToJson();
+        request.SettingsVersion = ConversionOptions.Version;
+        response = BatchMode.BuildBatchResponse(request, WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Null(response.Subtitle);
+        Assert.Contains("nothing to convert.", response.Message);
+    }
+
+    [Fact]
+    public void Batch_NewEnglishIdiomsProduceReviewHintsWithoutModels()
+    {
+        var request = EpisodeRequest("Ele estava no seu Tod.", true, "He was on his tod.");
+        var response = BatchMode.BuildBatchResponse(request, WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Contains("1 line(s) with an English idiom", response.Message);
+        Assert.Null(response.Subtitle);
+    }
+
+    [Fact]
+    public void Batch_AdditionalWorkbookRulesPreserveCueTimings()
+    {
+        var request = Request("Recebi o holerite.", "Baixei um arquivo.", "Dei uma força.",
+            "Ela puxou\nassunto.", "Elas ficaram de saco cheio.", "Foi um escanteio.", "Contou uma parada cardíaca.");
+        var response = BatchMode.BuildBatchResponse(request, WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Recebi o recibo de vencimento.", "Descarreguei um ficheiro.", "Dei uma ajuda.",
+            "Ela meteu\nconversa.", "Elas ficaram fartas.", "Foi um canto.", "Contou uma paragem cardíaca." }, Texts(response));
+        Assert.Equal(SubRipParser.Parse(request.Subtitle.SubRip).Select(b => (b.StartMs, b.EndMs)),
+            SubRipParser.Parse(response.Subtitle!.Native).Select(b => (b.StartMs, b.EndMs)));
+    }
+
+    [Fact]
+    public void Batch_AdditionalWorkbookHelpOutNeedsEnglishConfirmation()
+    {
+        var request = EpisodeRequest("Ele quebrou um galho.", true, "He did me a favor.");
+        var response = BatchMode.BuildBatchResponse(request, WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Ele desenrascou." }, Texts(response));
+        request.Settings = (ConversionOptions.Default with { UseReference = false }).ToJson();
+        request.SettingsVersion = ConversionOptions.Version;
+        response = BatchMode.BuildBatchResponse(request, WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Ele partiu um galho." }, Texts(response));
+    }
+
+    [Fact]
+    public void Batch_VerifiedSpreadsheetExpressionsPreserveCueTimings()
+    {
+        var request = Request("Vou pegar um busão.", "Paguei mico.", "Dei um rolê.", "Tomei uma breja.",
+            "A meia-calça está rasgada.", "A mensalidade da faculdade.");
+        var response = BatchMode.BuildBatchResponse(request, WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Vou apanhar um autocarro.", "Passei vergonha.", "Dei uma volta.", "Bebi uma cerveja.",
+            "Os collants estão rasgados.", "A propina." }, Texts(response));
+        Assert.Equal(SubRipParser.Parse(request.Subtitle.SubRip).Select(b => (b.StartMs, b.EndMs)),
+            SubRipParser.Parse(response.Subtitle!.Native).Select(b => (b.StartMs, b.EndMs)));
+    }
+
+    [Fact]
+    public void Batch_VerifiedSpreadsheetSlangUsesEnglishConfirmation()
+    {
+        var response = BatchMode.BuildBatchResponse(EpisodeRequest("Ele é pão-duro.", true, "He's a cheapskate."),
+            WordListPath, new EmbeddingSettings(CheckMeaning: false));
+        Assert.Equal(new[] { "Ele é forreta." }, Texts(response));
+    }
+
+    [Fact]
     public void Batch_InclusiveContinuationUsesOriginalPreviousCue()
     {
         var response = BatchMode.BuildBatchResponse(Request("A gente sempre escuta,", "mas nunca acha que vai acontecer contigo."),

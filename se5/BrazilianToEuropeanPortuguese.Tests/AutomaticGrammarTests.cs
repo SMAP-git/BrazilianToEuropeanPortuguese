@@ -23,7 +23,7 @@ public sealed class AutomaticGrammarTests
     [Theory]
     [InlineData("Nós está prontos.", "Nós estamos prontos.")]
     [InlineData("Eles não pode sair.", "Eles não podem sair.")]
-    [InlineData("Elas sempre trabalha aqui.", "Elas sempre trabalham aqui.")]
+    [InlineData("Elas sempre trabalha aqui.", "Elas trabalham sempre aqui.")]
     [InlineData("Nós chegou cedo.", "Nós chegámos cedo.")]
     [InlineData("Eles já aprendeu isso.", "Eles já aprenderam isso.")]
     [InlineData("Nós falaria com ela.", "Nós falaríamos com ela.")]
