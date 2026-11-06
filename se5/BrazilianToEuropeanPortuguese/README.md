@@ -26,6 +26,13 @@ spelling, vocabulary and grammar. Like *American to British*, it shows a checkab
 preview of every changed line, so you can review and untick individual changes before
 applying them.
 
+### SRT processing example
+
+![SRT processing preview with original PT-BR text, editable PT-PT corrections, English reference lines and review warnings](srt-processing.png)
+
+Review individual corrections and warnings before choosing **Apply**.
+A warning is a request for review, not proof that a correction is wrong.
+
 Use the arrow immediately to the left of **Contribute vocabulary / Local word list** to collapse or expand
 the settings area (including reference/model controls) while reviewing subtitles.
 Select all/none and Apply remain available. Collapsing does not rerun conversion,

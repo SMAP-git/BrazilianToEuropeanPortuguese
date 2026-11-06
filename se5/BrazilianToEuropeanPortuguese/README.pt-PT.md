@@ -31,6 +31,13 @@ adaptando a ortografia, o vocabulário e a gramática. Tal como o plugin *Americ
 British*, apresenta uma pré-visualização de cada legenda alterada, com uma caixa
 de seleção que permite rever e rejeitar alterações individuais antes de as aplicar.
 
+### Exemplo de processamento de um SRT
+
+![Pré-visualização do processamento de um SRT com texto original em PT-BR, correções editáveis em PT-PT, referência inglesa e avisos de revisão](srt-processing.png)
+
+Reveja as correções e os avisos individualmente antes de escolher **Apply**.
+Um aviso pede uma revisão; não comprova que uma correção esteja errada.
+
 Durante a revisão, use a seta imediatamente à esquerda de **Contribute vocabulary /
 Local word list** para recolher ou expandir a área das definições, incluindo os
 controlos da referência e dos modelos. Os botões de selecionar tudo/nada e de
